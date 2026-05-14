@@ -1,0 +1,29 @@
+# 文档源数据（外部导入，数量庞大）
+md-source/
+index_state.json
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 嵌入式 Python 运行时（环境依赖，非源码）
+python312/
+
+# 下载的模型文件（体积大，可重新下载）
+models/
+
+# Qdrant 数据库数据（运行时生成）
+qdrant_storage/
+
+# IDE / 工具配置
+.claude/
+.vscode/
+.idea/
+
+# 环境变量
+.env
+*.env
+
+# 日志
+*.log
