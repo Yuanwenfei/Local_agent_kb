@@ -11,14 +11,35 @@ import hashlib
 import json
 import time
 import math
+import logging
 from pathlib import Path
+from datetime import datetime
 
 # 禁用 HuggingFace 网络检查，强制使用本地模型
 os.environ['HF_HUB_OFFLINE'] = '1'
 os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 
+# ==================== 日志配置 ====================
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, f"index_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+    ],
+)
+logger = logging.getLogger("index_docs")
+# 同时输出到控制台
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+logger.addHandler(console_handler)
+
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, OptimizersConfigDiff
 from fastembed import TextEmbedding
 
 # PDF/Word/TXT/MD 解析器（同目录模块，统一入口）
@@ -56,6 +77,11 @@ EMBED_MODEL = "intfloat/multilingual-e5-large"
 VECTOR_SIZE = 1024
 BATCH_SIZE = 100
 EMBED_BATCH = 32
+
+# GPU 支持：设置 KB_USE_GPU=1 启用 CUDA 推理
+USE_GPU = os.getenv("KB_USE_GPU", "0") == "1"
+ONNX_PROVIDERS = (["CUDAExecutionProvider", "CPUExecutionProvider"]
+                  if USE_GPU else None)
 
 # 支持的文档扩展名
 SUPPORTED_EXTENSIONS = {".md", ".pdf", ".docx", ".txt"}
@@ -105,6 +131,7 @@ def load_index_state() -> dict:
 def save_index_state(state: dict):
     with open(INDEX_STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
+    logger.info(f"状态已保存: {INDEX_STATE_FILE} ({len(state)} 条记录)")
 
 def get_file_content_hash(file_path: str) -> str:
     """计算文件内容的 MD5 hash"""
@@ -150,6 +177,7 @@ def scan_files(folder_path: str, state: dict):
             }
         except Exception as e:
             console.print(f"[yellow]警告: 无法读取 {doc_file}: {e}[/yellow]")
+            logger.warning(f"无法读取文件 {doc_file}: {e}")
 
     added = []
     modified = []
@@ -179,6 +207,7 @@ def delete_file_points(file_path: str) -> bool:
         return True
     except Exception as e:
         console.print(f"[red]删除旧数据失败: {file_path} - {e}[/red]")
+        logger.error(f"删除旧数据失败: {file_path} - {e}")
         return False
 
 # ==================== 切分逻辑（detect 函数已统一从 document_parsers 导入） ====================
@@ -190,11 +219,17 @@ def parse_file(file_path: str) -> list[dict]:
 def _validate_vector(vec: list, preview: str = ""):
     """校验单个向量：维度、全零、NaN/Inf"""
     if len(vec) != VECTOR_SIZE:
-        raise ValueError(f"向量维度异常: {len(vec)} != {VECTOR_SIZE}")
+        msg = f"向量维度异常: {len(vec)} != {VECTOR_SIZE}"
+        logger.error(msg)
+        raise ValueError(msg)
     if all(abs(x) < 1e-9 for x in vec):
-        raise ValueError(f"生成零向量，embedding 模型异常。预览: {preview[:80]}")
+        msg = f"生成零向量，embedding 模型异常。预览: {preview[:80]}"
+        logger.error(msg)
+        raise ValueError(msg)
     if any(math.isnan(x) or math.isinf(x) for x in vec):
-        raise ValueError(f"向量含 NaN/Inf，embedding 模型异常。预览: {preview[:80]}")
+        msg = f"向量含 NaN/Inf，embedding 模型异常。预览: {preview[:80]}"
+        logger.error(msg)
+        raise ValueError(msg)
 
 
 def _model_health_check(embedder) -> list:
@@ -204,12 +239,14 @@ def _model_health_check(embedder) -> list:
     for txt, vec in zip(test_texts, vectors):
         v = vec.tolist()
         _validate_vector(v, txt)
+    logger.info(f"模型健康检查通过: {len(vectors)} 个测试向量均有效")
     return vectors
 
 
 def _smoke_test(qdrant, embedder):
-    """索引完成后冒烟测试：确认查询能返回有效分数"""
+    """索引完成后冒烟测试：查询验证 + 全量零向量扫描"""
     console.print("[bold cyan]🔍 执行入库后冒烟测试...[/bold cyan]")
+    logger.info("开始冒烟测试")
     test_queries = ["conveyor belt", "IBatchEditable", "RackConfigurator"]
     for q in test_queries:
         vec = list(embedder.embed([q]))[0].tolist()
@@ -221,12 +258,91 @@ def _smoke_test(qdrant, embedder):
             score_threshold=0.0
         )
         if not results:
-            raise RuntimeError(f"冒烟测试失败：查询 '{q}' 无返回，向量可能全零或未成功入库")
+            msg = f"冒烟测试失败：查询 '{q}' 无返回，向量可能全零或未成功入库"
+            logger.error(msg)
+            raise RuntimeError(msg)
         score = results[0].score
         if score < 1e-6:
-            raise RuntimeError(f"冒烟测试失败：查询 '{q}' 的最高相似度为 {score:.6f}，向量数据异常")
+            msg = f"冒烟测试失败：查询 '{q}' 的最高相似度为 {score:.6f}，向量数据异常"
+            logger.error(msg)
+            raise RuntimeError(msg)
         console.print(f"  [green]✓[/green] '{q}' -> top_score={score:.4f}")
+        logger.info(f"冒烟测试查询 '{q}' -> top_score={score:.4f}")
+
+    # 全量零向量扫描（替代之前的200点抽样）
+    # 根因：200点抽样可能漏检，段优化损坏会导致全量零向量
+    console.print("[bold cyan]🔍 全量零向量扫描...[/bold cyan]")
+    import numpy as np
+    zero_count = 0
+    total_scanned = 0
+    offset = None
+    BATCH = 1000
+    while True:
+        points, offset = qdrant.scroll(
+            collection_name=COLLECTION_NAME,
+            limit=BATCH,
+            offset=offset,
+            with_vectors=True,
+            with_payload=False,
+        )
+        if not points:
+            break
+        for p in points:
+            if np.linalg.norm(p.vector) < 1e-9:
+                zero_count += 1
+            total_scanned += 1
+        if offset is None:
+            break
+    
+    if zero_count > 0:
+        msg = (
+            f"冒烟测试失败：全量扫描 {total_scanned} 个向量中发现 {zero_count} 个零向量 "
+            f"({zero_count/total_scanned*100:.1f}%)，数据质量异常！"
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+    console.print(f"  [green]✓[/green] 全量扫描 {total_scanned} 个向量，零向量: 0")
+    logger.info(f"冒烟测试通过：全量扫描 {total_scanned} 个向量，零向量=0")
     console.print("[bold green]✅ 冒烟测试通过[/bold green]")
+
+
+def _check_existing_data_quality():
+    """预索引检查：抽样检测已有数据是否存在零向量，防止在损坏数据上继续增量"""
+    try:
+        ci = qdrant.get_collection(COLLECTION_NAME)
+        if ci.points_count == 0:
+            return True  # 空集合，无需检查
+        # 抽样500点检查零向量
+        import numpy as np
+        sample = qdrant.scroll(
+            collection_name=COLLECTION_NAME,
+            limit=min(500, ci.points_count),
+            with_vectors=True,
+            with_payload=False,
+        )[0]
+        zero_count = sum(1 for p in sample if np.linalg.norm(p.vector) < 1e-9)
+        if zero_count > 0:
+            zero_pct = zero_count / len(sample) * 100
+            console.print(Panel(
+                f"[bold red]⚠️ 检测到已有数据中存在零向量！[/bold red]\n\n"
+                f"抽样 {len(sample)} 点中发现 {zero_count} ({zero_pct:.1f}%) 个零向量\n\n"
+                f"这可能是 Qdrant 段优化损坏导致的（参见零向量根因分析报告）。\n"
+                f"[yellow]建议：删除集合后重新全量索引，或删除 index_state.json 后重试。[/yellow]",
+                title="数据质量警告",
+                border_style="red"
+            ))
+            logger.error(f"预索引检查: 发现 {zero_count}/{len(sample)} ({zero_pct:.1f}%) 零向量，数据可能已损坏")
+            return False
+        # 检查段健康（膨胀比）
+        segments = ci.segments_count
+        if segments > 10:
+            console.print(f"[yellow]⚠️ 段数量={segments}，存储可能过度膨胀（建议单次全量索引而非多次增量）[/yellow]")
+            logger.warning(f"段数量={segments}，可能过度膨胀")
+        logger.info(f"预索引检查通过: {len(sample)} 抽样点无零向量, 段数={segments}")
+        return True
+    except Exception as e:
+        logger.warning(f"预索引检查异常（跳过）: {e}")
+        return True
 
 
 def ensure_collection():
@@ -236,13 +352,24 @@ def ensure_collection():
     except Exception:
         qdrant.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
+            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            # 优化器配置：降低段合并频率，防止 Windows mmap 同步缺陷
+            # indexing_threshold 从默认20000提高到50000，减少段优化触发次数
+            optimizers_config=OptimizersConfigDiff(
+                indexing_threshold=50000,
+                max_optimization_threads=1,
+            )
         )
+        logger.info("创建集合，优化器配置: indexing_threshold=50000, max_optimization_threads=1")
         return False
 
 # ==================== 主索引函数（rich 进度条版） ====================
 def index_folder(folder_path: str):
     ensure_collection()
+    
+    # 预索引数据质量检查：防止在已损坏的数据上继续增量
+    _check_existing_data_quality()
+    
     state = load_index_state()
     
     # 1. 扫描文件
@@ -281,6 +408,10 @@ def index_folder(folder_path: str):
         f"[bold]📄 总计: {len(current_files)}[/bold]"
     )
     console.print(Panel(summary, title="扫描结果", border_style="blue"))
+    logger.info(
+        f"扫描结果: 新增={len(added)}, 修改={len(modified)}, "
+        f"删除={len(deleted)}, 未变={unchanged}, 总计={len(current_files)}"
+    )
     
     if total_process == 0:
         console.print("[bold green]✅ 所有文件已是最新，无需更新！[/bold green]")
@@ -318,14 +449,17 @@ def index_folder(folder_path: str):
     
     # 加载模型 + 健康检查
     with console.status("[bold green]正在加载 Embedding 模型..."):
-        embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR)
+        embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR,
+                                 providers=ONNX_PROVIDERS)
     _model_health_check(embedder)
+    logger.info(f"模型加载完成: {EMBED_MODEL}, providers={ONNX_PROVIDERS}")
     
     points = []
     embed_buffer = []
     total_chunks = 0
     total_processed_chunks = 0
     start_time = time.time()
+    logger.info(f"开始索引: 目录={folder_path}, 预计文件数={len(files_to_index)}")
     
     # 统计总 chunk 数（用于进度条）
     with console.status("[dim]预计算 chunk 数量..."):
@@ -351,12 +485,73 @@ def index_folder(folder_path: str):
         file_task = progress.add_task("[cyan]文件处理", total=len(files_to_index), speed="")
         chunk_task = progress.add_task("[green]片段入库", total=total_expected_chunks, speed="")
         
+        def _rebuild_embedder():
+            """重建 Embedding 模型 session，防止 GPU 状态累积损坏"""
+            nonlocal embedder
+            progress.console.print(
+                "[yellow]🔄 重建 Embedding 模型 session（防止 GPU 状态累积）...[/yellow]"
+            )
+            logger.info("重建 Embedding 模型 session")
+            del embedder
+            import gc
+            gc.collect()
+            embedder = TextEmbedding(
+                model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR, providers=ONNX_PROVIDERS
+            )
+            _model_health_check(embedder)
+            progress.console.print("[green]  ✓ Embedding 模型已重建[/green]")
+            logger.info("Embedding 模型已重建")
+        
         def _flush_embed():
             nonlocal points, embed_buffer, total_chunks, total_processed_chunks
             if not embed_buffer:
                 return
             texts = [c["text"] for c in embed_buffer]
             vectors = list(embedder.embed(texts))
+            
+            # 安全检查：确保向量数量与输入一致（防止 zip 截断丢数据）
+            if len(vectors) != len(embed_buffer):
+                progress.console.print(
+                    f"[red]严重: embed 返回 {len(vectors)} 向量，但输入 {len(embed_buffer)} 文本！[/red]"
+                )
+            
+            # Batch 级零向量实时监控
+            import numpy as np
+            batch_zero_count = 0
+            for vec in vectors:
+                if np.linalg.norm(vec) < 1e-9:
+                    batch_zero_count += 1
+            if batch_zero_count > 0:
+                progress.console.print(
+                    f"[red]⚠️ Batch 零向量警告: {batch_zero_count}/{len(vectors)} "
+                    f"({batch_zero_count/len(vectors)*100:.1f}%) 个零向量！[/red]"
+                )
+                logger.warning(
+                    f"Batch 零向量警告: {batch_zero_count}/{len(vectors)} "
+                    f"({batch_zero_count/len(vectors)*100:.1f}%) 个零向量"
+                )
+                # 零向量比例过高时，重建 embedder 并重试当前 batch
+                if batch_zero_count / len(vectors) > 0.1:
+                    progress.console.print(
+                        "[red]  零向量比例>10%，触发 session 重建并重新嵌入当前 batch...[/red]"
+                    )
+                    logger.warning("零向量比例>10%，触发 session 重建")
+                    _rebuild_embedder()
+                    vectors = list(embedder.embed(texts))
+                    # 再次检查
+                    batch_zero_count = sum(
+                        1 for vec in vectors if np.linalg.norm(vec) < 1e-9
+                    )
+                    if batch_zero_count > 0:
+                        progress.console.print(
+                            f"[red]  重建后仍有 {batch_zero_count} 个零向量，跳过当前 batch[/red]"
+                        )
+                        logger.error(f"重建后仍有 {batch_zero_count} 个零向量，跳过当前 batch")
+                        embed_buffer.clear()
+                        return
+                    progress.console.print("[green]  重建后零向量问题已修复[/green]")
+                    logger.info("重建后零向量问题已修复")
+            
             for chunk, vec in zip(embed_buffer, vectors):
                 vec_list = vec.tolist()
                 _validate_vector(vec_list, chunk.get("text", ""))
@@ -369,6 +564,11 @@ def index_folder(folder_path: str):
                 total_processed_chunks += 1
                 progress.advance(chunk_task)
             embed_buffer.clear()
+            
+            # 定期重建 embedder session（每 5000 chunks）
+            if total_chunks > 0 and total_chunks % 5000 == 0:
+                logger.info(f"已处理 {total_chunks} chunks，触发预防性 session 重建")
+                _rebuild_embedder()
         
         def _flush_points(force=False):
             nonlocal points
@@ -389,6 +589,7 @@ def index_folder(folder_path: str):
                         _flush_points()
 
                 # 更新状态
+                rel_path = info['rel_path']
                 state[rel_path] = {
                     "hash": info["hash"],
                     "mtime": info["mtime"],
@@ -404,6 +605,8 @@ def index_folder(folder_path: str):
 
             except Exception as e:
                 progress.console.print(f"[red]错误: {full_path} - {e}[/red]")
+                logger.error(f"文件处理错误: {full_path} - {e}")
+                embed_buffer.clear()  # 防止失败的 buffer 污染后续批次
                 progress.advance(file_task)
         
         _flush_embed()
@@ -426,6 +629,7 @@ def index_folder(folder_path: str):
     result_table.add_row("当前总片段", str(qdrant.get_collection(COLLECTION_NAME).points_count))
     console.print(result_table)
     console.print(f"[bold green]✅ 索引完成！状态已保存到 {INDEX_STATE_FILE}[/bold green]")
+    logger.info(f"索引完成: 文件={len(files_to_index)}, chunks={total_chunks}, 耗时={elapsed:.1f}s, 速度={total_chunks/elapsed:.1f}chunks/s")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

@@ -7,7 +7,9 @@ import os
 import sys
 import asyncio
 import gc
+import math
 import threading
+import logging
 from typing import Any, Sequence, Optional
 
 # 禁用 HuggingFace 网络检查，强制使用本地模型
@@ -44,6 +46,14 @@ import onnxruntime as _ort
 _ort.set_default_logger_severity(3)  # 3 = ERROR
 _ort.set_default_logger_verbosity(0)
 
+# ==================== 日志配置 ====================
+logger = logging.getLogger("kb_mcp_server")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    _ch = logging.StreamHandler(sys.stderr)
+    _ch.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"))
+    logger.addHandler(_ch)
+
 
 # ==================== 配置 ====================
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
@@ -51,6 +61,10 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("KB_COLLECTION", "emulate3d_docs")
 EMBED_MODEL = "intfloat/multilingual-e5-large"  # 可换 "BAAI/bge-small-zh-v1.5" 节省内存
 IDLE_TIMEOUT = int(os.getenv("KB_IDLE_TIMEOUT", "600"))  # 秒，0=不释放
+# GPU 支持：设置 KB_USE_GPU=1 启用 CUDA 推理
+USE_GPU = os.getenv("KB_USE_GPU", "0") == "1"
+ONNX_PROVIDERS = (["CUDAExecutionProvider", "CPUExecutionProvider"]
+                  if USE_GPU else None)
 # 脚本所在目录作为项目根目录，确保 cache_dir 绝对路径正确
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 MODEL_CACHE_DIR = os.path.join(PROJECT_ROOT, "models")
@@ -69,9 +83,10 @@ def get_qdrant() -> QdrantClient:
 def get_embedder() -> TextEmbedding:
     global _embedder
     if _embedder is None:
-        print(f"[KB-MCP] 加载模型 {EMBED_MODEL}...", file=sys.stderr)
-        _embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR)
-        print("[KB-MCP] 模型就绪", file=sys.stderr)
+        logger.info(f"加载模型 {EMBED_MODEL}...")
+        _embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR,
+                                  providers=ONNX_PROVIDERS)
+        logger.info("模型就绪")
     return _embedder
 
 def release_embedder():
@@ -80,7 +95,7 @@ def release_embedder():
         del _embedder
         _embedder = None
         gc.collect()
-        print("[KB-MCP] 模型已释放（空闲超时）", file=sys.stderr)
+        logger.info("模型已释放（空闲超时）")
     if _idle_timer is not None:
         _idle_timer.cancel()
         _idle_timer = None
@@ -96,6 +111,24 @@ def reset_idle_timer():
 
 # ==================== MCP Server ====================
 app = Server("local-kb-server")
+
+def _validate_query_vector(vec: list) -> None:
+    """校验查询向量：检测零向量/NaN/Inf，防止无效查询导致无法定位问题"""
+    if all(abs(x) < 1e-9 for x in vec):
+        logger.error("查询向量为零向量，embedding 模型可能异常")
+        raise ValueError("查询向量全零，embedding 模型异常")
+    if any(math.isnan(x) or math.isinf(x) for x in vec):
+        logger.error("查询向量含 NaN/Inf，embedding 模型异常")
+        raise ValueError("查询向量含 NaN/Inf，embedding 模型异常")
+
+
+def _embed_query(query: str) -> list:
+    """嵌入查询文本并验证向量有效性"""
+    embedder = get_embedder()
+    vector = list(embedder.embed([query]))[0].tolist()
+    _validate_query_vector(vector)
+    return vector
+
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
@@ -159,8 +192,7 @@ async def _handle_search(args: dict) -> Sequence[TextContent]:
     doc_type = args.get("doc_type", "all")
     top_k = args.get("top_k", 5)
 
-    embedder = get_embedder()
-    vector = list(embedder.embed([query]))[0].tolist()
+    vector = _embed_query(query)
 
     qdrant = get_qdrant()
     filter_must = []
@@ -177,6 +209,7 @@ async def _handle_search(args: dict) -> Sequence[TextContent]:
     )
 
     if not results:
+        logger.warning(f"检索无结果: query='{query}', score_threshold=0.65，可能是知识库中无相关内容或向量数据异常")
         return [TextContent(type="text", text="未在知识库中找到相关文档片段。建议更换关键词或确认文档已入库。")]
 
     chunks = []
@@ -200,8 +233,7 @@ async def _handle_class_api(args: dict) -> Sequence[TextContent]:
     method_name = args.get("method_name")
     query = f"{class_name} {method_name or ''}".strip()
 
-    embedder = get_embedder()
-    vector = list(embedder.embed([query]))[0].tolist()
+    vector = _embed_query(query)
 
     qdrant = get_qdrant()
     filter_must = [{"key": "class_name", "match": {"value": class_name}}]
@@ -217,6 +249,7 @@ async def _handle_class_api(args: dict) -> Sequence[TextContent]:
     )
 
     if not results:
+        logger.warning(f"类API检索无结果: class={class_name}, method={method_name}")
         return [TextContent(type="text", text=f"未找到类 {class_name} 的文档。")]
 
     texts = []
@@ -230,7 +263,7 @@ async def _handle_class_api(args: dict) -> Sequence[TextContent]:
     return [TextContent(type="text", text="\n---\n".join(texts))]
 
 async def main():
-    print("[KB-MCP] 服务启动（模型按需加载，空闲自动释放）", file=sys.stderr)
+    logger.info("服务启动（模型按需加载，空闲自动释放）")
     async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
 

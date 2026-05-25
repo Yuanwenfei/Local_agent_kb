@@ -34,7 +34,7 @@
 
 ## 🏗️ 架构
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │        AI 编程助手 (Copilot / Kimi)      │
 │              (云端 LLM)                  │
@@ -53,12 +53,13 @@
           │          ┌────────▼────────┐
           │          │  Qdrant Server  │
           │          │  (Docker 容器)   │
-          │          │  qdrant_storage │
+          │          │  named volume   │
           │          └─────────────────┘
           │
 ┌─────────▼────────────────────────────────┐
 │      index_docs.py (索引脚本)            │
 │  解析 → 向量化 → 入库 (增量更新)         │
+│  预索引质量检查 → 全量零向量扫描          │
 └──────────────────────────────────────────┘
 ```
 
@@ -88,7 +89,9 @@
 docker compose up -d
 ```
 
-此命令将启动 Qdrant 向量数据库，数据持久化在 `./qdrant_storage` 目录。
+此命令将启动 Qdrant 向量数据库，数据持久化在 Docker named volume (`qdrant_data`) 中。
+
+> **Windows 用户注意**: 项目已采用 Docker named volume 替代 bind mount，避免 Windows 文件系统对 mmap 写入同步不可靠导致的数据损坏问题。
 
 ### 2. 安装依赖
 
@@ -163,14 +166,14 @@ get_class_api(class_name="HttpClient", method_name="PostAsync")
 ```
 .
 ├── kb_mcp_server.py          # MCP Server 主程序（模型按需加载 + 空闲释放）
-├── index_docs.py             # 批量索引脚本（增量更新 + rich 进度条）
+├── index_docs.py             # 批量索引脚本（增量更新 + 数据质量保障）
 ├── document_parsers.py       # 文档解析器（PDF / Word / TXT / MD）
 ├── index_docs.bat            # Windows 快捷索引脚本
+├── docker-compose.yml        # Qdrant Docker 编排（named volume 持久化）
 ├── requirements.txt          # Python 依赖
-├── docker-compose.yml        # Qdrant Docker 编排
 ├── index_state.json          # 索引状态（自动生成，增量更新用）
 ├── models/                   # Embedding 模型缓存（自动下载）
-├── qdrant_storage/           # Qdrant 数据持久化（Docker volume）
+├── logs/                     # 索引运行日志（自动生成）
 └── md-source/                # 默认文档源目录（可配置）
 ```
 
@@ -184,7 +187,8 @@ get_class_api(class_name="HttpClient", method_name="PostAsync")
 |----------|--------|------|
 | `QDRANT_HOST` | `localhost` | Qdrant 服务地址 |
 | `QDRANT_PORT` | `6333` | Qdrant 服务端口 |
-| `KB_COLLECTION` | `local_kb_docs` | Qdrant 集合名称 |
+| `KB_COLLECTION` | `emulate3d_docs` | Qdrant 集合名称 |
+| `KB_USE_GPU` | `0` | 启用 GPU 加速（设为 `1` 启用 CUDA） |
 | `KB_IDLE_TIMEOUT` | `600` | 模型空闲释放时间（秒），`0` 为不释放 |
 
 ---
@@ -210,6 +214,20 @@ get_class_api(class_name="HttpClient", method_name="PostAsync")
 4. **未变更文件** → 跳过，秒级完成
 
 > **安全保护**: 当超过 80% 的已索引文件在目录中消失时，阻止自动清理以防止误删。
+
+### 数据质量保障
+
+索引脚本内置多层防护机制，确保向量数据的完整性和可靠性：
+
+| 检查项 | 说明 |
+|--------|------|
+| **模型健康检查** | 索引前热身验证，确认 embedding 模型输出非零向量 |
+| **Batch 零向量监控** | 嵌入过程中实时检测，零向量比例 >10% 自动重建 session |
+| **预索引质量检查** | 增量索引前抽样检测已有数据，发现零向量时告警阻止 |
+| **全量零向量扫描** | 索引完成后 scroll 全部向量，确认无零向量才视为成功 |
+| **优化器安全配置** | `indexing_threshold=50000`，降低段合并频率；`max_optimization_threads=1` |
+| **定期 session 重建** | 每 5000 chunks 重建 embedding session，防止 GPU 状态累积 |
+| **段健康监控** | 段数量超过阈值时告警，提示存储膨胀风险 |
 
 ---
 

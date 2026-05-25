@@ -34,7 +34,7 @@ By vectorizing local documents (Markdown, PDF, Word, TXT) and storing them in a 
 
 ## 🏗️ Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │     AI Assistant (Copilot / Kimi Code)       │
 │              (Cloud LLM)                     │
@@ -53,12 +53,13 @@ By vectorizing local documents (Markdown, PDF, Word, TXT) and storing them in a 
           │           ┌────────▼────────┐
           │           │  Qdrant Server  │
           │           │  (Docker)        │
-          │           │  qdrant_storage │
+          │           │  named volume   │
           │           └─────────────────┘
           │
 ┌─────────▼────────────────────────────────────┐
 │      index_docs.py (Indexing Script)         │
 │   Parse → Vectorize → Upsert (Incremental)   │
+│   Pre-index Quality Check → Full Zero Scan   │
 └──────────────────────────────────────────────┘
 ```
 
@@ -88,7 +89,9 @@ By vectorizing local documents (Markdown, PDF, Word, TXT) and storing them in a 
 docker compose up -d
 ```
 
-This starts the Qdrant vector database with data persisted in `./qdrant_storage`.
+This starts the Qdrant vector database with data persisted in a Docker named volume (`qdrant_data`).
+
+> **Windows Users**: This project uses a Docker named volume instead of a bind mount to avoid data corruption caused by unreliable mmap write synchronization on the Windows filesystem.
 
 ### 2. Install Dependencies
 
@@ -163,14 +166,14 @@ get_class_api(class_name="HttpClient", method_name="PostAsync")
 ```
 .
 ├── kb_mcp_server.py          # MCP Server (on-demand model loading + idle release)
-├── index_docs.py             # Batch indexing script (incremental + rich progress)
+├── index_docs.py             # Batch indexing script (incremental + data quality safeguards)
 ├── document_parsers.py       # Document parsers (PDF / Word / TXT / MD)
 ├── index_docs.bat            # Windows quick-index batch script
+├── docker-compose.yml        # Qdrant Docker orchestration (named volume persistence)
 ├── requirements.txt          # Python dependencies
-├── docker-compose.yml        # Qdrant Docker orchestration
 ├── index_state.json          # Index state (auto-generated, for incremental updates)
 ├── models/                   # Embedding model cache (auto-downloaded)
-├── qdrant_storage/           # Qdrant data persistence (Docker volume)
+├── logs/                     # Indexing run logs (auto-generated)
 └── md-source/                # Default document source directory (configurable)
 ```
 
@@ -184,7 +187,8 @@ Runtime behavior is configured via environment variables:
 |----------|---------|-------------|
 | `QDRANT_HOST` | `localhost` | Qdrant server address |
 | `QDRANT_PORT` | `6333` | Qdrant server port |
-| `KB_COLLECTION` | `local_kb_docs` | Qdrant collection name |
+| `KB_COLLECTION` | `emulate3d_docs` | Qdrant collection name |
+| `KB_USE_GPU` | `0` | Enable GPU acceleration (set to `1` for CUDA) |
 | `KB_IDLE_TIMEOUT` | `600` | Model idle release timeout (seconds); `0` to disable |
 
 ---
@@ -210,6 +214,20 @@ Runtime behavior is configured via environment variables:
 4. **Unchanged files** → Skipped, completes in seconds
 
 > **Safeguard**: When more than 80% of indexed files disappear from the source directory, automatic cleanup is blocked to prevent accidental data loss.
+
+### Data Quality Safeguards
+
+The indexing script includes multi-layer protection to ensure vector data integrity:
+
+| Check | Description |
+|-------|-------------|
+| **Model Health Check** | Pre-index warmup verification to confirm the embedding model outputs non-zero vectors |
+| **Batch Zero-Vector Monitor** | Real-time detection during embedding; auto-rebuilds session if zero-vector ratio exceeds 10% |
+| **Pre-index Quality Check** | Samples existing data before incremental indexing; alerts and blocks if zero vectors are found |
+| **Full Zero-Vector Scan** | Scrolls all vectors after indexing completes; only passes if no zero vectors are found |
+| **Optimizer Safety Config** | `indexing_threshold=50000` to reduce segment merge frequency; `max_optimization_threads=1` |
+| **Periodic Session Rebuild** | Rebuilds embedding session every 5000 chunks to prevent GPU state accumulation |
+| **Segment Health Monitor** | Alerts when segment count exceeds threshold, warning of storage bloat risk |
 
 ---
 

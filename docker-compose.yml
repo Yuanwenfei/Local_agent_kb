@@ -8,8 +8,15 @@ services:
       - "6333:6333"   # REST API
       - "6334:6334"   # gRPC（可选）
     volumes:
-      - ./qdrant_storage:/qdrant/storage
+      # 使用 Docker named volume 替代 bind mount
+      # 根因：Windows bind mount 对 mmap 写入同步不可靠，
+      # 导致 Qdrant 段优化时向量数据被归零（膨胀比12.57x后触发）
+      - qdrant_data:/qdrant/storage
     environment:
       - QDRANT__SERVICE__HTTP_PORT=6333
       - QDRANT__LOG_LEVEL=INFO
     restart: unless-stopped
+
+volumes:
+  qdrant_data:
+    name: local_kb_qdrant_data
