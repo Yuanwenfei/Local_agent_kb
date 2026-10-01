@@ -1,6 +1,9 @@
 # 文档源数据（外部导入，数量庞大）
 md-source/
+
+# 索引/入库状态（运行时生成，随每次入库变动，不入库）
 index_state.json
+kb_ingest_state.json
 
 # Python 缓存
 __pycache__/
@@ -16,8 +19,17 @@ models/
 # Qdrant 数据库数据（运行时生成）
 qdrant_storage/
 
-# IDE / 工具配置
+# 清库/重跑前的 Qdrant 快照与状态备份（体积大，仅本地回滚用）
+backup/
+
+# 回归度量产物（结果 JSON 体积小，保留 latest/baseline；逐次时间戳结果不入库）
+regression/results/*.json
+!regression/results/baseline.json
+!regression/results/latest.json
+
+# IDE / 工具配置（含 AI 助手的本地记忆，属工作区状态）
 .claude/
+.codebuddy/
 .vscode/
 .idea/
 
