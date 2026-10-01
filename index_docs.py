@@ -39,8 +39,11 @@ console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(me
 logger.addHandler(console_handler)
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, OptimizersConfigDiff
-from fastembed import TextEmbedding
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue,
+    OptimizersConfigDiff, SparseVectorParams, SparseVector, Modifier,
+)
+from fastembed import TextEmbedding, SparseTextEmbedding
 
 # PDF/Word/TXT/MD 解析器（同目录模块，统一入口）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -75,6 +78,11 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("KB_COLLECTION", "emulate3d_docs")
 EMBED_MODEL = "intfloat/multilingual-e5-large"
 VECTOR_SIZE = 1024
+# 稀疏通道（P2-2）：BM42。模型约 90MB，需一次性下载到 models/ 后离线可用。
+# 注意：Qdrant 的 sparse 索引必须带 modifier=idf（fastembed 源码明确要求），
+# 且 Qdrant 不支持给已有集合「新增」向量名 —— 必须重建集合（见 ensure_collection）。
+SPARSE_MODEL = "Qdrant/bm42-all-minilm-l6-v2-attentions"
+SPARSE_VECTOR_NAME = "bm42"
 BATCH_SIZE = 100
 EMBED_BATCH = 32
 
@@ -86,10 +94,19 @@ ONNX_PROVIDERS = (["CUDAExecutionProvider", "CPUExecutionProvider"]
 # 支持的文档扩展名
 SUPPORTED_EXTENSIONS = {".md", ".pdf", ".docx", ".txt"}
 
+# 解析器版本：payload 结构变化（元数据 v2/图片剥离/图注入嵌入）时递增，
+# 索引状态按版本比对——解析器变了视同文件修改，强制重嵌（G-D）
+# 2.2（P4-3②）：图注抽取向导（显式标记/alt/正文/标题/文件名）+ 图注进入嵌入文本
+PARSER_VERSION = "2.2"
+
 # 脚本所在目录作为项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 MODEL_CACHE_DIR = os.path.join(PROJECT_ROOT, "models")
 INDEX_STATE_FILE = os.path.join(PROJECT_ROOT, "index_state.json")
+# P3：kb_ingest 的独立状态文件。刻意与 INDEX_STATE_FILE 分开——INDEX_STATE 的
+# key 是相对 md-source 的 rel_path，混入 kb-inbox 条目会被 scan_files 判为「已删除」
+# 而误删数据；分开后两条通道互不影响。
+INGEST_STATE_FILE = os.path.join(PROJECT_ROOT, "kb_ingest_state.json")
 
 # ==================== 初始化 ====================
 qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
@@ -186,7 +203,9 @@ def scan_files(folder_path: str, state: dict):
     for rel_path, info in current_files.items():
         if rel_path not in state:
             added.append(info)
-        elif state[rel_path]["hash"] != info["hash"]:
+        elif (state[rel_path]["hash"] != info["hash"]
+              or state[rel_path].get("parser_version") != PARSER_VERSION):
+            # hash 变了，或解析器版本变了（同 hash 不同输出，如链接剥离）→ 重嵌
             modified.append(info)
         else:
             unchanged += 1
@@ -216,6 +235,21 @@ def parse_file(file_path: str) -> list[dict]:
     """统一入口：委托给 document_parsers.parse_document()"""
     return parse_document(file_path)
 
+def _dense_of(vector):
+    """取密集向量：兼容匿名（list）与命名（dict）两种存储形态"""
+    if isinstance(vector, dict):
+        return vector.get("") or next((v for v in vector.values() if isinstance(v, list)), None)
+    return vector
+
+
+def _has_sparse(vector) -> bool:
+    """判断该点是否带 sparse 向量（hybrid 通道用）"""
+    if not isinstance(vector, dict):
+        return False
+    sv = vector.get(SPARSE_VECTOR_NAME)
+    return bool(sv) and len(getattr(sv, "indices", []) or []) > 0
+
+
 def _validate_vector(vec: list, preview: str = ""):
     """校验单个向量：维度、全零、NaN/Inf"""
     if len(vec) != VECTOR_SIZE:
@@ -241,6 +275,22 @@ def _model_health_check(embedder) -> list:
         _validate_vector(v, txt)
     logger.info(f"模型健康检查通过: {len(vectors)} 个测试向量均有效")
     return vectors
+
+
+def _to_sparse_vector(emb) -> SparseVector:
+    """fastembed SparseEmbedding -> Qdrant SparseVector（indices 必须升序）"""
+    pairs = sorted(zip((int(i) for i in emb.indices), (float(v) for v in emb.values)))
+    return SparseVector(indices=[p[0] for p in pairs], values=[p[1] for p in pairs])
+
+
+def _sparse_health_check(sparse_embedder) -> None:
+    """sparse 模型热身：确认能输出非空稀疏向量"""
+    emb = list(sparse_embedder.embed(["class RackConfigurator GenerateSlots"]))[0]
+    if len(emb.indices) == 0:
+        msg = "sparse 模型输出空向量，BM42 模型异常"
+        logger.error(msg)
+        raise RuntimeError(msg)
+    logger.info(f"sparse 健康检查通过: 非零项 {len(emb.indices)}")
 
 
 def _smoke_test(qdrant, embedder):
@@ -274,6 +324,7 @@ def _smoke_test(qdrant, embedder):
     console.print("[bold cyan]🔍 全量零向量扫描...[/bold cyan]")
     import numpy as np
     zero_count = 0
+    sparse_missing = 0
     total_scanned = 0
     offset = None
     BATCH = 1000
@@ -288,8 +339,10 @@ def _smoke_test(qdrant, embedder):
         if not points:
             break
         for p in points:
-            if np.linalg.norm(p.vector) < 1e-9:
+            if np.linalg.norm(_dense_of(p.vector)) < 1e-9:
                 zero_count += 1
+            if not _has_sparse(p.vector):
+                sparse_missing += 1
             total_scanned += 1
         if offset is None:
             break
@@ -302,7 +355,15 @@ def _smoke_test(qdrant, embedder):
         logger.error(msg)
         raise RuntimeError(msg)
     console.print(f"  [green]✓[/green] 全量扫描 {total_scanned} 个向量，零向量: 0")
-    logger.info(f"冒烟测试通过：全量扫描 {total_scanned} 个向量，零向量=0")
+    if sparse_missing:
+        console.print(
+            f"  [red]✗ 有 {sparse_missing}/{total_scanned} 点缺少 sparse 向量"
+            f"（hybrid 模式下这些点只参与 dense 通道）[/red]"
+        )
+        logger.warning(f"缺少 sparse 向量的点: {sparse_missing}/{total_scanned}")
+    else:
+        console.print(f"  [green]✓[/green] sparse 向量完整: {total_scanned} 点均有 {SPARSE_VECTOR_NAME}")
+    logger.info(f"冒烟测试通过：全量扫描 {total_scanned} 个向量，零向量=0，缺 sparse={sparse_missing}")
     console.print("[bold green]✅ 冒烟测试通过[/bold green]")
 
 
@@ -320,7 +381,7 @@ def _check_existing_data_quality():
             with_vectors=True,
             with_payload=False,
         )[0]
-        zero_count = sum(1 for p in sample if np.linalg.norm(p.vector) < 1e-9)
+        zero_count = sum(1 for p in sample if np.linalg.norm(_dense_of(p.vector)) < 1e-9)
         if zero_count > 0:
             zero_pct = zero_count / len(sample) * 100
             console.print(Panel(
@@ -345,14 +406,25 @@ def _check_existing_data_quality():
         return True
 
 
-def ensure_collection():
+def _sparse_config() -> dict:
+    """sparse 向量配置：BM42 必须配 modifier=idf（fastembed 源码明确要求）"""
+    return {SPARSE_VECTOR_NAME: SparseVectorParams(modifier=Modifier.IDF)}
+
+
+def ensure_collection() -> bool:
+    """确保集合存在且带 sparse 配置。返回 True=已存在。
+
+    注意：Qdrant 不支持给已有集合「新增」向量名（update_collection 只能改已存在向量的参数，
+    实测报 `Not existing vector name error: bm42`），所以 P2 的 sparse 通道必须重建集合——
+    用 `--drop-collection` 由本脚本删除+重建。
+    """
     try:
-        qdrant.get_collection(COLLECTION_NAME)
-        return True
+        info = qdrant.get_collection(COLLECTION_NAME)
     except Exception:
         qdrant.create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            sparse_vectors_config=_sparse_config(),
             # 优化器配置：降低段合并频率，防止 Windows mmap 同步缺陷
             # indexing_threshold 从默认20000提高到50000，减少段优化触发次数
             optimizers_config=OptimizersConfigDiff(
@@ -360,17 +432,151 @@ def ensure_collection():
                 max_optimization_threads=1,
             )
         )
-        logger.info("创建集合，优化器配置: indexing_threshold=50000, max_optimization_threads=1")
+        logger.info(f"创建集合：dense={VECTOR_SIZE} + sparse={SPARSE_VECTOR_NAME}(idf)")
         return False
 
-# ==================== 主索引函数（rich 进度条版） ====================
-def index_folder(folder_path: str):
+    sparse = getattr(info.config.params, "sparse_vectors", None) or {}
+    if SPARSE_VECTOR_NAME not in sparse:
+        console.print(Panel(
+            f"[bold red]集合缺少稀疏向量 `{SPARSE_VECTOR_NAME}`，无法写入 sparse 通道。[/bold red]\n\n"
+            f"Qdrant 无法给已有集合新增向量名（`update_collection` 只能修改已存在的向量参数）。\n"
+            f"请用 [bold]--drop-collection[/bold] 重建（会删除现有 {info.points_count} 点，需全量重跑）。\n\n"
+            f"[dim]回滚：清库前的快照在 backup\\ 目录，可用 Qdrant snapshots/recover 恢复。[/dim]",
+            title="集合配置不匹配", border_style="red"
+        ))
+        raise SystemExit(2)
+    return True
+
+# ==================== 单文件入库（P3：kb_ingest / kb_note 用） ====================
+
+def _load_json_state(path: str) -> dict:
+    if os.path.exists(path):
+        try:
+            with open(path, encoding='utf-8') as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_json_state(path: str, data: dict):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def index_single_file(file_path: str, embed_fn=None, sparse_embed_fn=None, *,
+                      state_file: str = None, force: bool = False) -> dict:
+    """单文件入库（幂等：先按 source 删除旧点再插入）。
+
+    与 index_folder 的区别：
+    - 不做目录扫描、不打印 rich 进度，适合在 MCP 服务进程内同步调用；
+    - embed_fn / sparse_embed_fn 可传入**服务端已加载**的嵌入器，避免二次加载
+      e5-large（约 2GB 内存）；不传则自建（脚本场景）；
+    - 状态写独立的 kb_ingest_state.json（见 INGEST_STATE_FILE 注释）。
+
+    返回 {"path","chunks","deleted","skipped","reason"}；失败抛异常。
+    """
+    path = os.path.abspath(file_path)
+    if not os.path.exists(path):
+        raise FileNotFoundError(path)
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise ValueError(f"不支持的扩展名 {ext}（支持：{', '.join(sorted(SUPPORTED_EXTENSIONS))}）")
+
+    state_file = state_file or INGEST_STATE_FILE
     ensure_collection()
-    
+
+    state = _load_json_state(state_file)
+    content_hash = get_file_content_hash(path)
+    rec = state.get(path) or {}
+    if (not force and rec.get("hash") == content_hash
+            and rec.get("parser_version") == PARSER_VERSION):
+        return {"path": path, "chunks": rec.get("chunks", 0), "deleted": 0,
+                "skipped": True, "reason": "内容与解析器版本均未变，跳过重嵌"}
+
+    chunks = parse_file(path)
+    if not chunks:
+        raise ValueError("解析后无有效切片（内容过短或格式不支持）")
+    for c in chunks:
+        c.setdefault("doc_hash", content_hash)
+
+    # 先删旧点：重复入库 / 重解析都不会留下孤儿切片
+    delete_file_points(path)
+
+    own_dense = own_sparse = None
+    try:
+        if embed_fn is None:
+            own_dense = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR,
+                                      providers=ONNX_PROVIDERS)
+            embed_fn = own_dense.embed
+        if sparse_embed_fn is None:
+            own_sparse = SparseTextEmbedding(model_name=SPARSE_MODEL, cache_dir=MODEL_CACHE_DIR,
+                                             providers=ONNX_PROVIDERS)
+            sparse_embed_fn = own_sparse.embed
+
+        texts = [c["text"] for c in chunks]
+        dense_vecs = list(embed_fn(texts))
+        sparse_vecs = list(sparse_embed_fn(texts))
+        if len(dense_vecs) != len(chunks) or len(sparse_vecs) != len(chunks):
+            raise RuntimeError(
+                f"嵌入数量不匹配：chunks={len(chunks)} dense={len(dense_vecs)} sparse={len(sparse_vecs)}")
+
+        points = []
+        for chunk, vec, svec in zip(chunks, dense_vecs, sparse_vecs):
+            vec_list = vec.tolist() if hasattr(vec, "tolist") else list(vec)
+            _validate_vector(vec_list, chunk.get("text", ""))
+            points.append(PointStruct(
+                id=str(uuid.uuid4()),
+                vector={"": vec_list, SPARSE_VECTOR_NAME: _to_sparse_vector(svec)},
+                payload=chunk,
+            ))
+        for i in range(0, len(points), BATCH_SIZE):
+            qdrant.upsert(collection_name=COLLECTION_NAME, points=points[i:i + BATCH_SIZE])
+    finally:
+        for m in (own_dense, own_sparse):
+            if m is not None:
+                del m
+        if own_dense is not None or own_sparse is not None:
+            import gc
+            gc.collect()
+
+    state[path] = {
+        "hash": content_hash,
+        "mtime": os.path.getmtime(path),
+        "full_path": path,
+        "chunks": len(chunks),
+        "parser_version": PARSER_VERSION,
+    }
+    _save_json_state(state_file, state)
+    logger.info(f"单文件入库完成: {path} chunks={len(chunks)}")
+    return {"path": path, "chunks": len(chunks), "deleted": 0, "skipped": False, "reason": ""}
+
+
+# ==================== 主索引函数（rich 进度条版） ====================
+def index_folder(folder_path: str, reindex_all: bool = False, drop_collection: bool = False):
+    if drop_collection:
+        try:
+            qdrant.delete_collection(COLLECTION_NAME)
+            console.print(Panel(
+                f"[yellow]已删除集合 `{COLLECTION_NAME}`，将按新配置重建："
+                f"dense({VECTOR_SIZE}) + sparse({SPARSE_VECTOR_NAME}/idf)[/yellow]",
+                title="--drop-collection", border_style="yellow"))
+            logger.warning("--drop-collection: 已删除集合")
+        except Exception as e:
+            logger.info(f"集合不存在或删除失败（忽略）: {e}")
+        # 集合已空：状态一并重置，全部文件走「新增」路径（不做逐文件删除）
+        save_index_state({})
+
+    ensure_collection()
+
     # 预索引数据质量检查：防止在已损坏的数据上继续增量
     _check_existing_data_quality()
-    
+
     state = load_index_state()
+    # reindex_all 在扫描后生效：全部文件转入 modified（先删旧点再插新点）。
+    # 不能清空 state——解析器语义变更（如 G-H 图片剥离）后源文件 MD5 未变，
+    # 普通增量检测会把所有文件判为「未变更」而跳过；也不能走 added（会重复入库）
     
     # 1. 扫描文件
     console.rule("[bold blue]📁 扫描文件")
@@ -380,7 +586,13 @@ def index_folder(folder_path: str):
         except FileNotFoundError as e:
             console.print(f"[bold red]错误: {e}[/bold red]")
             return
-    
+
+    if reindex_all:
+        # 全部文件走 modified（先删旧点再插新点）；added 路径不删旧点会重复入库
+        modified = added + modified
+        added = []
+        unchanged = 0
+
     total_process = len(added) + len(modified) + len(deleted)
     
     # 删除保护：如果大量文件缺失，暂停并提示
@@ -447,12 +659,16 @@ def index_folder(folder_path: str):
     
     console.rule("[bold green]🚀 开始索引入库")
     
-    # 加载模型 + 健康检查
-    with console.status("[bold green]正在加载 Embedding 模型..."):
+    # 加载模型 + 健康检查（dense e5 + sparse BM42）
+    with console.status("[bold green]正在加载 Embedding 模型（dense + sparse）..."):
         embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR,
                                  providers=ONNX_PROVIDERS)
+        sparse_embedder = SparseTextEmbedding(model_name=SPARSE_MODEL,
+                                              cache_dir=MODEL_CACHE_DIR,
+                                              providers=ONNX_PROVIDERS)
     _model_health_check(embedder)
-    logger.info(f"模型加载完成: {EMBED_MODEL}, providers={ONNX_PROVIDERS}")
+    _sparse_health_check(sparse_embedder)
+    logger.info(f"模型加载完成: {EMBED_MODEL} + {SPARSE_MODEL}, providers={ONNX_PROVIDERS}")
     
     points = []
     embed_buffer = []
@@ -461,15 +677,31 @@ def index_folder(folder_path: str):
     start_time = time.time()
     logger.info(f"开始索引: 目录={folder_path}, 预计文件数={len(files_to_index)}")
     
-    # 统计总 chunk 数（用于进度条）
-    with console.status("[dim]预计算 chunk 数量..."):
-        total_expected_chunks = 0
-        for info in files_to_index:
-            try:
-                chunks = parse_file(info['full_path'])
-                total_expected_chunks += len(chunks)
-            except Exception:
-                pass
+    # 预解析一次：既统计总 chunk 数（进度条用），也缓存结果供主循环复用。
+    # 单遍解析 940 页 PDF 约需 7 分钟，若主循环再解析一遍会让等待时间翻倍。
+    console.rule("[dim]预解析文档（统计片段总数，同时缓存供主循环复用）[/dim]")
+    parsed_cache: dict = {}
+    total_expected_chunks = 0
+    _pre_t0 = time.time()
+    for _idx, info in enumerate(files_to_index, 1):
+        _f_t0 = time.time()
+        try:
+            chunks = parse_file(info['full_path'])
+            parsed_cache[info['full_path']] = chunks
+            total_expected_chunks += len(chunks)
+            _n = len(chunks)
+        except Exception as _e:
+            _n = 0
+            logger.error(f"预解析失败: {info['full_path']} - {_e}")
+        console.print(
+            f"  [dim][{_idx}/{len(files_to_index)}] {Path(info['full_path']).name} "
+            f"→ {_n} chunks（{time.time() - _f_t0:.1f}s）[/dim]"
+        )
+    console.print(
+        f"  [dim]预解析完成：共 {total_expected_chunks} chunks，"
+        f"耗时 {time.time() - _pre_t0:.1f}s[/dim]"
+    )
+    logger.info(f"预解析完成: 共 {total_expected_chunks} chunks, 耗时={time.time() - _pre_t0:.1f}s")
     
     with Progress(
         SpinnerColumn(),
@@ -508,12 +740,19 @@ def index_folder(folder_path: str):
                 return
             texts = [c["text"] for c in embed_buffer]
             vectors = list(embedder.embed(texts))
+            sparse_vectors = list(sparse_embedder.embed(texts))  # P2-2：同批算 sparse
             
             # 安全检查：确保向量数量与输入一致（防止 zip 截断丢数据）
             if len(vectors) != len(embed_buffer):
                 progress.console.print(
                     f"[red]严重: embed 返回 {len(vectors)} 向量，但输入 {len(embed_buffer)} 文本！[/red]"
                 )
+            if len(sparse_vectors) != len(embed_buffer):
+                progress.console.print(
+                    f"[red]严重: sparse embed 返回 {len(sparse_vectors)} 向量，"
+                    f"但输入 {len(embed_buffer)} 文本！[/red]"
+                )
+                logger.error(f"sparse 向量数量不匹配: {len(sparse_vectors)} vs {len(embed_buffer)}")
             
             # Batch 级零向量实时监控
             import numpy as np
@@ -552,12 +791,13 @@ def index_folder(folder_path: str):
                     progress.console.print("[green]  重建后零向量问题已修复[/green]")
                     logger.info("重建后零向量问题已修复")
             
-            for chunk, vec in zip(embed_buffer, vectors):
+            for chunk, vec, svec in zip(embed_buffer, vectors, sparse_vectors):
                 vec_list = vec.tolist()
                 _validate_vector(vec_list, chunk.get("text", ""))
                 points.append(PointStruct(
                     id=str(uuid.uuid4()),
-                    vector=vec_list,
+                    # 匿名 dense（保持与旧查询代码兼容）+ 命名 sparse
+                    vector={"": vec_list, SPARSE_VECTOR_NAME: _to_sparse_vector(svec)},
                     payload=chunk
                 ))
                 total_chunks += 1
@@ -580,9 +820,13 @@ def index_folder(folder_path: str):
         for info in files_to_index:
             full_path = info['full_path']
             try:
-                chunks = parse_file(full_path)
+                # 复用预解析结果；预解析失败的文件在此重新解析，以便照常报错
+                chunks = parsed_cache.get(full_path)
+                if chunks is None:
+                    chunks = parse_file(full_path)
 
                 for chunk in chunks:
+                    chunk.setdefault("doc_hash", info["hash"])  # 整篇哈希（§5.2 doc_hash）
                     embed_buffer.append(chunk)
                     if len(embed_buffer) >= EMBED_BATCH:
                         _flush_embed()
@@ -595,7 +839,8 @@ def index_folder(folder_path: str):
                     "mtime": info["mtime"],
                     "rel_path": rel_path,
                     "full_path": full_path,
-                    "chunks": len(chunks)
+                    "chunks": len(chunks),
+                    "parser_version": PARSER_VERSION,
                 }
 
                 # 更新文件进度
@@ -632,8 +877,14 @@ def index_folder(folder_path: str):
     logger.info(f"索引完成: 文件={len(files_to_index)}, chunks={total_chunks}, 耗时={elapsed:.1f}s, 速度={total_chunks/elapsed:.1f}chunks/s")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        console.print("[bold red]用法: python index_docs.py /path/to/docs/folder[/bold red]")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    if not args:
+        console.print("[bold red]用法: python index_docs.py /path/to/docs/folder [--reindex-all] [--drop-collection][/bold red]")
         console.print("[dim]支持扩展名: .md / .pdf / .docx / .txt[/dim]")
+        console.print("[dim]--reindex-all: 强制重嵌全部文件（解析器语义变更后使用，G-D 重建窗口）[/dim]")
+        console.print("[dim]--drop-collection: 删除并重建集合（集合缺少 sparse 向量配置时必须用；会清空并重置状态）[/dim]")
         sys.exit(1)
-    index_folder(sys.argv[1])
+    index_folder(args[0],
+                 reindex_all="--reindex-all" in flags,
+                 drop_collection="--drop-collection" in flags)

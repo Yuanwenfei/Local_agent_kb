@@ -11,6 +11,9 @@ set PYTHON=python312\python.exe
 set INDEX_SCRIPT=index_docs.py
 set DOCS_DIR=md-source
 
+rem GPU 加速：1=启用 CUDA 推理（依赖 nvidia\cudnn|cuBLAS 等运行库，已随 python312 一并部署）
+set KB_USE_GPU=1
+
 if not exist "%PYTHON%" (
     echo [错误] 未找到 %PYTHON%
     pause
