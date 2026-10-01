@@ -1,0 +1,1463 @@
+{
+  "timestamp": "20261001_085947",
+  "collection": "emulate3d_docs",
+  "top_k": 5,
+  "aggregate": {
+    "mrr5": 0.3684,
+    "recall5": 0.4211,
+    "avg_gradient": 0.0083,
+    "top1_toc_count": 4,
+    "dominated_queries": 2,
+    "zero_hit_default_threshold": 0,
+    "no_hit_probes": [
+      "q18",
+      "q19",
+      "q20",
+      "q22",
+      "q23"
+    ],
+    "unexpected_hits_probes": []
+  },
+  "per_query": [
+    {
+      "id": "q01",
+      "query": "conveyor belt 运行参数",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8668,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Basics.md",
+          "title": "Basics",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 2,
+          "score": 0.8656,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Loads.md",
+          "title": "Configuring Loads",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8641,
+          "source": "E:\\Local_agent_kb\\md-source\\内嵌技能文档\\InjectorConveyors.md",
+          "title": "InjectorConveyors",
+          "heading": "Key Properties",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.863,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Basics\\Conveyors.md",
+          "title": "Conveyors",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 5,
+          "score": 0.8624,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Catalogs\\Legacy Components\\QuickStart Catalog\\Transporters\\Robot QuickLogic Procedures.md",
+          "title": "Robot QuickLogic Procedures",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0044,
+      "top1_toc": true,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q02",
+      "query": "RackConfigurator GenerateSlots 用法",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8633,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Loads.md",
+          "title": "Configuring Loads",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8612,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Visuals.md",
+          "title": "Configuring Visuals",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8589,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\RA.ICT Catalog - Independent Cart Technology\\User Guide\\Code Generation.md",
+          "title": "Code Generation",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8575,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\QuickLogic Racks.md",
+          "title": "QuickLogic Racks",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 5,
+          "score": 0.8562,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Catalogs\\Legacy Components\\QuickStart Catalog\\Racks\\How to pre-populate.md",
+          "title": "How to pre-populate",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0071,
+      "top1_toc": false,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q03",
+      "query": "IBatchEditable 批量编辑接口",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8539,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Visuals\\Manipulating Meshes.md",
+          "title": "Manipulating Meshes",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8517,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\User Interface\\Ribbon\\Home\\Tools\\Tools\\Property Paster.md",
+          "title": "Property Paster",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8474,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\Source Control\\Version Control\\Version Control Editor\\Making Changes.md",
+          "title": "Making Changes",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8456,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\JScript Scripting\\Immediate Window\\Custom Properties_ Addition_Removal from Multiple Visuals.md",
+          "title": "Custom Properties: Addition/Removal from Multiple Visuals",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8445,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Emulation and External Connections\\PLC Connectivity\\Tag Definitions and Tag Bindings\\Expression Bindings\\Reading and Writing Strings to the PLC.md",
+          "title": "Reading and Writing Strings to the PLC",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0094,
+      "top1_toc": false,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q04",
+      "query": "AGV 电池充电策略",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.869,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\Vehicles\\AGVs.md",
+          "title": "AGVs",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": true
+        },
+        {
+          "rank": 2,
+          "score": 0.8675,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\Vehicles\\AGVs.md",
+          "title": "AGVs",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 3,
+          "score": 0.8634,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.7 自动充电流程",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8566,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.10 电量事件（低电量动作）",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8545,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "5.1 挂载点总表",
+          "relevant": true,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 1.0,
+      "recall5": 1.0,
+      "gradient": 0.0145,
+      "top1_toc": true,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q05",
+      "query": "PackJob 创建与执行",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8729,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.8 Pod 挂载/卸载联动（控制器事件）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8699,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Loads.md",
+          "title": "Configuring Loads",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8671,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.6 货架任务（取货 → 送到目标）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8656,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Package Manager\\Creating Packages\\Examples\\Creating a Script Package.md",
+          "title": "Creating a Script Package",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8635,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.9 瓦片事件驱动（到达即再派单）",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0094,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q06",
+      "query": "ACR 层级结构",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8643,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "2. 核心概念",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8567,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "5.1 推荐形态：一次性入池 + 优先级排序",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8559,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "8.2 ACR / 货柜系列（`ACRWidgetProvider`）",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8543,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "10. 参考链接",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.852,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "1.2 三种\"程序\"层次（先分清，避免混用）",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 1.0,
+      "recall5": 1.0,
+      "gradient": 0.0123,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q07",
+      "query": "QuickLogic QLP 脚本入口",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8801,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "2. QLP 程序（QuickLogic Program）概念",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8762,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\QuickLogicTools-插件开发指南.md",
+          "title": "QuickLogicTools-插件开发指南",
+          "heading": "QuickLogicTools 插件开发指南",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8716,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "4.2 官方入门示例（三段递进）",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8701,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\User Interface\\Ribbon\\Home\\Editing\\Edit Script.md",
+          "title": "Edit Script",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8693,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "附录 A：Procedure API 速查（`Demo3D.QuickLogic.Procedure`）",
+          "relevant": true,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 1.0,
+      "recall5": 1.0,
+      "gradient": 0.0108,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q08",
+      "query": "SmartComponent 子类化脚本",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.856,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Miscellaneous\\Visual Component Model.md",
+          "title": "Visual Component Model",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.856,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\QuickLogicTools-插件开发指南.md",
+          "title": "QuickLogicTools-插件开发指南",
+          "heading": "6. 其他",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8552,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Miscellaneous\\Visual Component Model.md",
+          "title": "Visual Component Model",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8541,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Package Manager\\Creating Packages\\Examples\\Creating a Script Package.md",
+          "title": "Creating a Script Package",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.853,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\QuickLogicTools-插件开发指南.md",
+          "title": "QuickLogicTools-插件开发指南",
+          "heading": "四、组件（属性通道）的设计",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.003,
+      "top1_toc": false,
+      "max_doc_ratio": 0.4,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q09",
+      "query": "Transfers 任务类型",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8531,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.6 货架任务（取货 → 送到目标）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8521,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Logic and Scripting\\Transfer Protocol.md",
+          "title": "Transfer Protocol",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": true
+        },
+        {
+          "rank": 3,
+          "score": 0.8504,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\QuickLogic\\QuickLogic Editor Categories\\Flow Control Category.md",
+          "title": "Flow Control Category",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": true
+        },
+        {
+          "rank": 4,
+          "score": 0.8493,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\QuickLogic\\QuickLogic Editor Categories\\Flow Control Category.md",
+          "title": "Flow Control Category",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": true
+        },
+        {
+          "rank": 5,
+          "score": 0.849,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\QuickLogic\\QuickLogic Editor Categories\\Flow Control Category.md",
+          "title": "Flow Control Category",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": true
+        }
+      ],
+      "mrr5": 0.5,
+      "recall5": 1.0,
+      "gradient": 0.0041,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q10",
+      "query": "rack slot 货位生成",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8739,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.6 货架任务（取货 → 送到目标）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8696,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "4.1 从货架取一箱放进自己的货架（本模型出库）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8663,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "3. 建单 API 速查（QLP）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8625,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "1. 一句话结论",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8615,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "8.2 ACR / 货柜系列（`ACRWidgetProvider`）",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0124,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q11",
+      "query": "AMR waypoint 导航点",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8573,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "2. 核心概念",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8557,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "7.3 怎么判断某台车当前在哪块瓦片",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8556,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "AMRFramework 使用手册（重点：QLP 程序）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8546,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "1. AMRFramework 是什么",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8535,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "10.1 调试三板斧",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0038,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q12",
+      "query": "WCS 订单下发接口",
+      "note": "系统对接",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8514,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.9 瓦片事件驱动（到达即再派单）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8479,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.5 去带 Pod 的瓦片取货（SKU 定向）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8463,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "5.2 何时才需要\"瓦片事件串联\"",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8454,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.6 货架任务（取货 → 送到目标）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8444,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "5.2 典型用法：瓦片到达事件 + 事件驱动建模",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.007,
+      "top1_toc": false,
+      "max_doc_ratio": 0.8,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q13",
+      "query": "PLC 信号交互",
+      "note": "系统对接",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8632,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Emulation and External Connections\\PLC Connectivity.md",
+          "title": "PLC Connectivity",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8613,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Emulation and External Connections\\PLC Connectivity\\Tag Definitions and Tag Bindings\\Expression Bindings\\Reading and Writing Strings to the PLC.md",
+          "title": "Reading and Writing Strings to the PLC",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8596,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Emulation and External Connections\\PLC Connectivity\\Communication Protocols\\Siemens Protocols\\PLCSIM Protocols\\PLCSIM S7 Online.md",
+          "title": "PLCSIM S7 Online",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8578,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Simulation and Data Collection\\Test Runner\\PLC Actions.md",
+          "title": "PLC Actions",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8538,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Simulation and Data Collection\\Test Runner\\PLC Actions.md",
+          "title": "PLC Actions",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 1.0,
+      "recall5": 1.0,
+      "gradient": 0.0094,
+      "top1_toc": false,
+      "max_doc_ratio": 0.4,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q14",
+      "query": "仿真运行重置 reset",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.877,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "11.3 红线与保存建议",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8753,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\QuickLogicTools-插件开发指南.md",
+          "title": "QuickLogicTools-插件开发指南",
+          "heading": "十、红线（会直接卡死 Emulate3D）",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8729,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\User Interface\\Status Bar\\Reset Layout.md",
+          "title": "Reset Layout",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8709,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Simulation and Data Collection\\Resolving Non-Repeatability.md",
+          "title": "Resolving Non-Repeatability",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8678,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\User Interface\\Ribbon\\Home\\Animate\\Reset.md",
+          "title": "Reset",
+          "heading": "概述",
+          "relevant": true,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 1.0,
+      "recall5": 1.0,
+      "gradient": 0.0092,
+      "top1_toc": false,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q15",
+      "query": "Catalogs and Plugins 目录",
+      "note": "TOC 探针：基线预期目录页居首",
+      "toc_probe": true,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8915,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins.md",
+          "title": "Catalogs and Plugins",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 2,
+          "score": 0.8755,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Introducing C# Scripting\\C# Catalog Plugins.md",
+          "title": "C# Catalog Plugins",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8752,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Connectors.md",
+          "title": "Connectors",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8745,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Visuals.md",
+          "title": "Configuring Visuals",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8738,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Package Manager\\Creating Packages\\Examples\\Creating a Catalog Package.md",
+          "title": "Creating a Catalog Package",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0177,
+      "top1_toc": true,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q16",
+      "query": "AMRController 控制器类",
+      "note": "API 用法",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8625,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "9.2 `AMRController`",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8613,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "附录 B：常用类型取值",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8611,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\CAD Is The Model ™\\CAD Is The Model ™ Catalog\\Generic Controller.md",
+          "title": "Generic Controller",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8581,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "6.4 机器人动作与举升（`AMRController`）",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.858,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "1.1 主要组件",
+          "relevant": true,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 1.0,
+      "recall5": 1.0,
+      "gradient": 0.0045,
+      "top1_toc": false,
+      "max_doc_ratio": 0.8,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q17",
+      "query": "increment 部件 整数属性赋值",
+      "note": "规则条文",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8727,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Custom Properties.md",
+          "title": "Custom Properties",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8697,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Emulation and External Connections\\PLC Connectivity\\Scripting API\\Bindable Source Generators\\Generate Bindable Class Attribute.md",
+          "title": "Generate Bindable Class Attribute",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8694,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\CAD Is The Model ™\\CAD Is The Model ™ Catalog\\Counting Encoder.md",
+          "title": "Counting Encoder",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 4,
+          "score": 0.8672,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\QuickLogic\\QuickLogic Editor Categories\\Numbers Category.md",
+          "title": "Numbers Category",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 5,
+          "score": 0.8647,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Constructs.md",
+          "title": "Constructs",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.008,
+      "top1_toc": false,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q18",
+      "query": "gripper component must exist as a child of",
+      "note": "D4 错误串基线：预期无命中",
+      "toc_probe": false,
+      "expect_no_hit": true,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8285,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\CAD Is The Model ™\\CAD Is The Model ™ Catalog\\Suction Gripper.md",
+          "title": "Suction Gripper",
+          "heading": "Grip Filter",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8275,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\CAD Is The Model ™\\CAD Is The Model ™ Catalog\\Mechanical Gripper.md",
+          "title": "Mechanical Gripper",
+          "heading": "Grip Mode",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8275,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\CAD is the Model\\Example CITM Markup\\How to use the Gripper Aspect.md",
+          "title": "How to use the Gripper Aspect",
+          "heading": "Adding the Mechanical Gripper Aspect",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8272,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\CAD Is The Model ™\\CAD Is The Model ™ Catalog\\Suction Gripper.md",
+          "title": "Suction Gripper",
+          "heading": "Grip Mode",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.827,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Legacy\\Legacy Robots\\How to Create a Custom End of Arm Effector Tool.md",
+          "title": "How to Create a Custom End of Arm Effector Tool",
+          "heading": "Main Requirements (i)",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0015,
+      "top1_toc": false,
+      "max_doc_ratio": 0.4,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q19",
+      "query": "does not have an AMR Controller as child",
+      "note": "D4 错误串基线：预期无命中",
+      "toc_probe": false,
+      "expect_no_hit": true,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8191,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\AMRs\\Autonomous Case-handling Robots.md",
+          "title": "Autonomous Case-handling Robots",
+          "heading": "ACR Companion",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.816,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\AMRs\\Autonomous Case-handling Robots.md",
+          "title": "Autonomous Case-handling Robots",
+          "heading": "AMR Rack",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8127,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Catalogs and Plugins\\AMRs\\Autonomous Case-handling Robots.md",
+          "title": "Autonomous Case-handling Robots",
+          "heading": "ACR E3D Generic Telescopic",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8122,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Legacy\\Legacy Robots\\How to Create a Custom End of Arm Effector Tool.md",
+          "title": "How to Create a Custom End of Arm Effector Tool",
+          "heading": "Tool Creation (iii)",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8111,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Miscellaneous\\Handling Game Controllers And Steering Wheels.md",
+          "title": "Handling Game Controllers And Steering Wheels",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.008,
+      "top1_toc": false,
+      "max_doc_ratio": 0.6,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q20",
+      "query": "AMR TEST12 SR1 取货点",
+      "note": "D5 模型事实基线：预期无命中",
+      "toc_probe": false,
+      "expect_no_hit": true,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8607,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "4.1 从货架取一箱放进自己的货架（本模型出库）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8598,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "1. 一句话结论",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8546,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "7.6 货架任务（取货 → 送到目标）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8541,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "7.2 可读的机器人状态（做同步用）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8526,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "4.2 把车上的料箱放回货架（本模型入库）",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0081,
+      "top1_toc": false,
+      "max_doc_ratio": 0.8,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q21",
+      "query": "conveyor to self rack transfer 前置条件",
+      "note": "D6/T7 部件前置条件基线",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8655,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Simulation and Data Collection\\Linear Physics Merge Control.md",
+          "title": "Linear Physics Merge Control",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8649,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "1. 一句话结论",
+          "relevant": true,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8643,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Catalogs\\Legacy Components\\QuickStart Catalog\\Transporters\\Robot QuickLogic Procedures.md",
+          "title": "Robot QuickLogic Procedures",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8624,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Catalogs\\Legacy Components\\QuickStart Catalog\\Transporters\\Robot QuickLogic Procedures.md",
+          "title": "Robot QuickLogic Procedures",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8617,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Legacy\\Legacy Conveyors.md",
+          "title": "Legacy Conveyors",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.5,
+      "recall5": 1.0,
+      "gradient": 0.0038,
+      "top1_toc": false,
+      "max_doc_ratio": 0.4,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q22",
+      "query": "车辆 Reset 不回初始瓦片 默认值",
+      "note": "缺陷知识基线：预期无命中",
+      "toc_probe": false,
+      "expect_no_hit": true,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8744,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "10.2 常见问题",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.872,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\QuickLogicTools-插件开发指南.md",
+          "title": "QuickLogicTools-插件开发指南",
+          "heading": "网格管理器与轨道系统",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8698,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\User Interface\\Ribbon\\Home\\View\\Default View.md",
+          "title": "Default View",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8681,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-QLP-使用手册.md",
+          "title": "AMRFramework-QLP-使用手册",
+          "heading": "9.3 `AMRTile`",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8675,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Installation\\Installation Troubleshooting\\Emulate3D_ Fails to Load.md",
+          "title": "Emulate3D: Fails to Load",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0069,
+      "top1_toc": false,
+      "max_doc_ratio": 0.4,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q23",
+      "query": "AMR TEST12 批量 8 AMRRack1",
+      "note": "D5 模型事实基线：预期无命中",
+      "toc_probe": false,
+      "expect_no_hit": true,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8688,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "8. 现行参考实现（本模型，实跑通过）",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 2,
+          "score": 0.8676,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "5.1 推荐形态：一次性入池 + 优先级排序",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8663,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "1. 一句话结论",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.8658,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\QuickLogicTools-插件开发指南.md",
+          "title": "QuickLogicTools-插件开发指南",
+          "heading": "十一、AMR 任务派发的额外结论",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8654,
+          "source": "E:\\Local_agent_kb\\md-source\\E3D Tutorials\\AMRFramework-ACR-使用报告.md",
+          "title": "AMRFramework-ACR-使用报告",
+          "heading": "3. 建单 API 速查（QLP）",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.0034,
+      "top1_toc": false,
+      "max_doc_ratio": 0.8,
+      "hit_at_default_threshold": true
+    },
+    {
+      "id": "q24",
+      "query": "Layout 图层 坐标系",
+      "note": "框架行为",
+      "toc_probe": false,
+      "expect_no_hit": false,
+      "top5": [
+        {
+          "rank": 1,
+          "score": 0.8709,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-Tutorials\\markdown\\Basics\\Getting Started.md",
+          "title": "Getting Started",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": true
+        },
+        {
+          "rank": 2,
+          "score": 0.8705,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Visuals.md",
+          "title": "Configuring Visuals",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 3,
+          "score": 0.8703,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Constructs.md",
+          "title": "Constructs",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 4,
+          "score": 0.867,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Basics\\Configuring Visuals\\Manipulating Meshes.md",
+          "title": "Manipulating Meshes",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        },
+        {
+          "rank": 5,
+          "score": 0.8649,
+          "source": "E:\\Local_agent_kb\\md-source\\Emulate3D-2026-Doc\\markdown\\Logic and Scripting\\C# Scripting\\Connectivity.md",
+          "title": "Connectivity",
+          "heading": "概述",
+          "relevant": false,
+          "is_toc": false
+        }
+      ],
+      "mrr5": 0.0,
+      "recall5": 0.0,
+      "gradient": 0.006,
+      "top1_toc": true,
+      "max_doc_ratio": 0.2,
+      "hit_at_default_threshold": true
+    }
+  ]
+}
