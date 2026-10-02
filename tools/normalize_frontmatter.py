@@ -356,7 +356,8 @@ def main():
         print("- 下一步：`python312\\\\python.exe tools\\\\backfill_payload.py --all-in-state`"
               f"（秒级，不重嵌）")
         print("- 复查：MCP `kb_meta_lint(top_docs=20)` 期望缺失 0 篇；"
-              "trust 生效后跑 `python312\\\\python.exe regression\\\\eval.py --compare baseline`")
+              "trust 生效后跑 `python312\\\\python.exe tools\\\\smoke_p3.py`；"
+              "量化回归集已移出仓库，口径见 README「验收回归」小节")
 
 
 if __name__ == "__main__":

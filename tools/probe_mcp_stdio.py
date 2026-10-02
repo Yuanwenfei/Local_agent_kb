@@ -8,8 +8,11 @@ import subprocess
 import sys
 import threading
 
-EXE = r"E:\Local_agent_kb\python312\python.exe"
-SRV = r"E:\Local_agent_kb\kb_mcp_server.py"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXE = os.path.join(PROJECT_ROOT, "python312", "python.exe")
+SRV = os.path.join(PROJECT_ROOT, "kb_mcp_server.py")
+if not os.path.exists(EXE):  # 非常规布局时退回当前解释器
+    EXE = sys.executable
 
 env = dict(os.environ, KB_USE_GPU="0", QDRANT_HOST="localhost", QDRANT_PORT="6333",
            KB_COLLECTION="emulate3d_docs", KB_IDLE_TIMEOUT="600",

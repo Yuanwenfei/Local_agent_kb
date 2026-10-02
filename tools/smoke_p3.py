@@ -51,7 +51,15 @@ async def readonly_checks(server):
     res = await server.call_tool("kb_dupes", {"mode": "name", "limit": 5})
     txt = _text(res)
     check("kb_dupes(name) 可执行", "副本巡检" in txt or "未发现副本" in txt)
-    check("kb_dupes 扫描含 kimi code workbentch（D-6）", "workbentch" in txt)
+    # D-6 巡检范围。以前只断言「workbentch 出现在输出里」，而 kb_dupes 会把**不存在**
+    # 的配置路径原样回显进「扫描范围」，这条断言因此永远 PASS（项目从 E: 迁到 D:
+    # 后实际已扫了个寂寞）。现在要求：要么目录真在（被扫），要么输出明确说「未扫描」。
+    extra = list(server.DUPES_EXTRA_DIRS)
+    absent = [d for d in extra if not os.path.isdir(d)]
+    check("D-6 额外巡检目录要么存在被扫、要么显式报未扫描（不静默假扫）",
+          (not absent) or ("未扫描" in txt),
+          f"配置 {extra}，其中不存在 {absent}")
+    check("巡检范围含语料根 md-source", "md-source" in txt)
 
     # 取一篇真实文档做 get_doc / outline
     res = await server.call_tool("kb_list_docs", {"limit": 5})
@@ -87,20 +95,31 @@ async def readonly_checks(server):
     check("不存在文档友好报错", "未找到文档" in _text(res))
 
     # 返图（T13）：找一篇含图文档
+    # 注：候选里保留了「标题就是文档名」的查询（如 Setting Conveyor Motor Speed）——
+    # 这类查询 top1 基本必中原文档，能不能返图取决于文档本身有没图，
+    # 比拿抽象话题词赌运气稳定。2026-10-02 就赌输了：「AMR 层级 结构图」的
+    # top1 变成了 AMRFramework-QLP-使用手册.md 的纯文本段（has_image=False），
+    # 机制没坏但报 FAIL——所以失败时把每候选的 top1 回显出来，下次不用重新推。
     img_res = None
-    for q in ("AMR 层级 结构图", "Emulate3D 教程 示意图", "PLC 接线 图"):
+    diag = []
+    for q in ("AMR 层级 结构图", "Emulate3D 教程 示意图", "PLC 接线 图",
+              "Setting Conveyor Motor Speed", "CurveConveyor 曲线输送机"):
         res = await server.call_tool("search_tech_kb",
                                      {"query": q, "top_k": 3, "attach_image": True})
         if _images(res):
             img_res = res
             break
+        # 区分两种失败：top1 本身就是纯文本（排序问题，机制没坏）
+        # vs top1 写了「含图」却没附 image（真 bug）
+        seg1 = next((l for l in _text(res).splitlines() if l.startswith("[片段1]")), "")
+        diag.append(f"{q} → top1 {'含图但未附图（真 bug）' if '含图' in seg1 else '纯文本片段'}")
     if img_res:
         check("T13 返图：top1 附 image content", True,
               f"{len(_images(img_res))} 张，提示语含'读图'")
         check("T13 提示语引导读图", "读图作答" in _text(img_res))
     else:
         check("T13 返图：top1 附 image content", False,
-              "三组含图查询均未返回 image content（可能 top1 恰好为纯文本片段）")
+              "五组候选均未返回 image content：" + "；".join(diag))
 
     # 纯文本降级（attach_image=false 不报错）
     res = await server.call_tool("search_tech_kb",

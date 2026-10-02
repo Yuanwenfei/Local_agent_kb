@@ -18,7 +18,7 @@
 
 **Local Agent KB** is a local knowledge base built on the **MCP (Model Context Protocol)**. It gives AI coding assistants **hybrid retrieval** over private documents: every retrieved snippet carries its channel, trust level, applicable version, document date and image paths, so the model can answer *and* cite evidence.
 
-The goal in one sentence: **turn "what the docs say" into "evidence the AI can quote"**. Beyond vector search that means a metadata spec (v2), version filtering with drift warnings, an image pipeline (captions + image return), a knowledge-ingestion path (draft → validate → publish), and a reproducible acceptance regression.
+The goal in one sentence: **turn "what the docs say" into "evidence the AI can quote"**. Beyond vector search that means a metadata spec (v2), version filtering with drift warnings, an image pipeline (captions + image return), a knowledge-ingestion path (draft → validate → publish), and an acceptance regression harness (currently outside the repo — see *Quality assurance*).
 
 ### ✨ Key Features
 
@@ -50,7 +50,7 @@ The goal in one sentence: **turn "what the docs say" into "evidence the AI can q
 │          ├─► sparse (BM42)             ├─► weighted RRF   │
 │          ├─► exact  (search_text)      │       │          │
 │          └─► anchor (term df check)    ┘       ▼          │
-│                                     post-process: TOC      │
+│                                     post-process: TOC/shell│
 │                                     penalty / trust /      │
 │                                     recency / ≤2 per doc / │
 │                                     image return           │
@@ -233,6 +233,7 @@ w: dense 0.7 | sparse 0.3 | exact 1.0 | anchor 1.0
 |------|-------|-------|
 | Candidate pool | `top_k × 3` | Pre-post-processing pool |
 | TOC penalty | `×0.6` **and never in top-3** | Hard constraint: keep recall, lose the best slots |
+| Shell penalty | `×0.6` **and never in top-3** | Fragments whose body is `<20` chars after stripping shortcodes/entities/whitespace, and with no image (converted `{{% children %}}` shell pages, code-block tails); index-side filter in `finalize_chunks` is primary (parser `2.3`), this is the retrieval-side fallback |
 | Trust weight | `measured 1.0` / `tutorial 0.9` / `pending 0.75` | Missing → `pending` |
 | Recency decay | linear over 6 months → floor `0.85` | **Conclusion-type `kind` only** (`note`/`defect_log`/`error_faq`/`model_fact_card`/`version_matrix`); tutorials / manuals / API references stay at 1.0 (their staleness is expressed by version filters); `date_inferred` always exempt |
 | Per-document cap | `≤2` snippets | Prevent one document from dominating |
@@ -305,15 +306,10 @@ kind: doc
 │   ├── audit_images.py            # Image audit (no Qdrant needed)
 │   ├── ensure_schema.py           # Collection & payload index creation
 │   ├── probe_mcp_stdio.py         # MCP handshake + tools/list probe
+│   ├── mine_cn_terms.py           # CN→EN glossary mining & health check (--check/--forms/--grep)
 │   └── smoke_p1..p4.py            # Per-phase smoke tests
-├── regression/               # Acceptance regression
-│   ├── queries.jsonl              # Fixed query set (24)
-│   ├── eval.py / eval_p2.py       # Metrics (dense / four-channel)
-│   ├── summarize.py               # Result summariser
-│   ├── baseline_20261001.md       # Baseline report
-│   └── results/                   # Per-run results (incl. baseline.json / latest.json)
 ├── backup/                   # Snapshots and rollback backups
-└── logs/                     # Index logs (generated)
+└── logs/                     # Index logs & run-time intermediates (generated, gitignored)
 ```
 
 ---
@@ -329,8 +325,8 @@ kind: doc
 | `KB_SITE_BASE` | `https://store.sim3d.com` | Domain used to complete site-relative image links |
 | `KB_INBOX_DIR` | `<repo>/kb-inbox` | Drafts / pending artifacts root |
 | `KB_CANONICAL_HINT` | `local_agent_kb` | Canonical heuristic (path containing this wins) |
-| `KB_DUPES_EXTRA_DIRS` | `E:\kimi code workbentch` | Extra dirs scanned by `kb_dupes` (never indexed) |
-| `KB_USE_GPU` | `0` | `1` enables CUDA (ONNX Runtime) |
+| `KB_DUPES_EXTRA_DIRS` | `<repo sibling>\kimi code workbentch` | Extra dirs scanned by `kb_dupes` (never indexed). Derived from the project location — **no hardcoded drive letter**; a missing dir is now reported as "not scanned" instead of being echoed as if it were |
+| `KB_USE_GPU` | `0` | `1` enables CUDA (ONNX Runtime). If CUDA is actually unavailable, indexing **falls back to CPU with a warning** (no hard failure); `0` pins CPU explicitly |
 | `KB_IDLE_TIMEOUT` | `600` | Model idle release (seconds; `0` = never) |
 | `KB_CHUNK_MAX_CHARS` | `1200` | Max characters per chunk |
 | `KB_DOC_BUDGET` | `3000` | `kb_get_doc` character budget |
@@ -383,14 +379,23 @@ docker cp "local_kb_qdrant:/qdrant/snapshots/emulate3d_docs/<snapshot-name>" "E:
 
 ### Acceptance regression
 
+> ⚠️ **Current state (2026-10-03)**: the `regression/` harness (35 fixed queries, `eval.py` /
+> `eval_p2.py` / `summarize.py`, `baseline_20261001.md`) has been moved out of the repository, so
+> **quantitative acceptance (MRR/Recall baseline comparison) is temporarily unavailable**.
+> Guards still in the repo: `tools\smoke_p1..p4.py` (functional smoke tests), `tools\mine_cn_terms.py`
+> (glossary health check) and manual spot checks. The methodology below is kept for the rebuild.
+
 ```powershell
-python312\python.exe regression\eval_p2.py --compare baseline   # four-channel (authoritative)
-python312\python.exe regression\eval.py    --compare baseline   # dense only
+python312\python.exe tools\smoke_p3.py                          # four-channel smoke test (14 assertions)
 python312\python.exe tools\smoke_p4.py --commit                 # phase smoke test (auto rollback)
+python312\python.exe tools\mine_cn_terms.py --check             # dead-mapping health check
+python312\python.exe tools\mine_cn_terms.py --forms             # realised-form alignment check
 ```
 
-- Fixed query set of **24** (`regression/queries.jsonl`: API usage, framework behaviour, error strings, version differences, model facts, gap probes);
-- Metrics: `MRR@5`, `Recall@5`, score gradient, TOC-at-top-1 count, per-document ratio, low-confidence count, latency, plus **T1–T14** assertions (version drift, caption retrieval, image-return degradation, recency scope, …);
+Historical scope (restore when `regression/` is rebuilt):
+
+- Fixed query set of **35** (core 24 + Chinese 11 — API usage, framework behaviour, error strings, version differences, model facts, gap probes);
+- Metrics: `MRR@5`, `Recall@5`, score gradient, TOC-at-top-1 count, per-document ratio, low-confidence count, latency, plus **T1–T15** assertions (version drift, caption retrieval, image-return degradation, recency scope, Chinese transliteration, …);
 - Full acceptance record (with measured values and corrections) lives in `本地知识库开发计划_20261001.md`.
 
 ---
@@ -401,7 +406,7 @@ Issues and PRs welcome. Suggested directions:
 
 - Phase 2 `kb_caption(mode=summary)`: use a VLM to write **real captions** (today only rule-based "weak captions")
 - Better time/version signals: enable finer recency policies once true publish dates are available
-- Grow the evaluation set: feed production failure queries back into `regression/queries.jsonl`
+- Evaluation: **rebuild the `regression/` harness first** (35 queries + four-channel metrics + T1–T15 assertions), then feed production failure queries back into it
 
 ---
 

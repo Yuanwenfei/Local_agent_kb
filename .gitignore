@@ -23,6 +23,7 @@ qdrant_storage/
 backup/
 
 # 回归度量产物（结果 JSON 体积小，保留 latest/baseline；逐次时间戳结果不入库）
+# 注：regression/ 已于 2026-10-03 移出仓库，以下规则为将来重建时继续生效而保留
 regression/results/*.json
 !regression/results/baseline.json
 !regression/results/latest.json
@@ -37,5 +38,6 @@ regression/results/*.json
 .env
 *.env
 
-# 日志
+# 日志与运行期输出（索引日志、术语表挖掘/回归探针的中间产物，均可重跑再生）
+logs/
 *.log

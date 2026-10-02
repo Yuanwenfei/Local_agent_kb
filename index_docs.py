@@ -87,9 +87,57 @@ BATCH_SIZE = 100
 EMBED_BATCH = 32
 
 # GPU 支持：设置 KB_USE_GPU=1 启用 CUDA 推理
+# 注意：不能写 None，None 会让 ONNX Runtime 默认优先挑选 CUDA，导致 KB_USE_GPU=0
+# 实际上仍在用 GPU（与 kb_mcp_server.py 同一处修复，此前只改了查询侧）
 USE_GPU = os.getenv("KB_USE_GPU", "0") == "1"
 ONNX_PROVIDERS = (["CUDAExecutionProvider", "CPUExecutionProvider"]
-                  if USE_GPU else None)
+                  if USE_GPU else ["CPUExecutionProvider"])
+
+
+def _cuda_provider_available() -> bool:
+    """提前发现「设了 KB_USE_GPU=1 但环境里根本没有 CUDA provider」。
+
+    装了 CPU 版 onnxruntime、或缺 cuDNN DLL 都会让 provider 列表里没有
+    CUDAExecutionProvider，此时继续往上传只会在建 session 时抛错。
+    """
+    try:
+        import onnxruntime as _ort
+    except Exception as e:                      # 没装 / 装坏了：交给下游报错
+        logger.warning(f"无法导入 onnxruntime 以确认 provider：{e}")
+        return False
+    return "CUDAExecutionProvider" in _ort.get_available_providers()
+
+
+if USE_GPU and not _cuda_provider_available():
+    logger.warning("KB_USE_GPU=1，但当前 onnxruntime 不提供 CUDAExecutionProvider"
+                   "（多半装的是 CPU 版或缺 cuDNN DLL）——本次降级为纯 CPU 索引。"
+                   "要真正上 GPU，参见 requirements.txt 里 onnxruntime-gpu 的说明。")
+    ONNX_PROVIDERS = ["CPUExecutionProvider"]
+    USE_GPU = False
+
+
+def _new_embedder(cls, model_name: str):
+    """统一的 embedder 构造入口：上 GPU 建 session 失败时降级 CPU 重试。
+
+    provider 不可用有两种表现：列表里就没有（上面已拦），以及**列出来了但建
+    session 才炸**（驱动 / DLL 版本不匹配）——后者只能在构造处兜。降级后改写模块
+    级 ONNX_PROVIDERS，让后续所有构造点（含 _rebuild_embedder）跟着走 CPU，
+    不反复撞同一堵墙。本来就走 CPU 时（len==1）没有可降级余地，照旧抛。
+    """
+    global ONNX_PROVIDERS, USE_GPU
+    providers = list(ONNX_PROVIDERS)
+    try:
+        return cls(model_name=model_name, cache_dir=MODEL_CACHE_DIR, providers=providers)
+    except Exception as e:
+        if len(providers) <= 1:
+            raise
+        logger.warning(f"CUDA 建 session 失败（{type(e).__name__}: {e}）"
+                       f"——{model_name} 降级为 CPU 重试")
+        ONNX_PROVIDERS = ["CPUExecutionProvider"]
+        USE_GPU = False
+        return cls(model_name=model_name, cache_dir=MODEL_CACHE_DIR,
+                   providers=ONNX_PROVIDERS)
+
 
 # 支持的文档扩展名
 SUPPORTED_EXTENSIONS = {".md", ".pdf", ".docx", ".txt"}
@@ -97,7 +145,9 @@ SUPPORTED_EXTENSIONS = {".md", ".pdf", ".docx", ".txt"}
 # 解析器版本：payload 结构变化（元数据 v2/图片剥离/图注入嵌入）时递增，
 # 索引状态按版本比对——解析器变了视同文件修改，强制重嵌（G-D）
 # 2.2（P4-3②）：图注抽取向导（显式标记/alt/正文/标题/文件名）+ 图注进入嵌入文本
-PARSER_VERSION = "2.2"
+# 2.3（2026-10-03）：finalize 层补空壳片段过滤——剥短代码后去实体/空白正文 <20 字符
+#   且无图的碎片不入库（MD 路径的 <20 闸跑在剥短代码之前，`{{% children %}}&nbsp;` 壳页漏网）
+PARSER_VERSION = "2.3"
 
 # 脚本所在目录作为项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -507,12 +557,10 @@ def index_single_file(file_path: str, embed_fn=None, sparse_embed_fn=None, *,
     own_dense = own_sparse = None
     try:
         if embed_fn is None:
-            own_dense = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR,
-                                      providers=ONNX_PROVIDERS)
+            own_dense = _new_embedder(TextEmbedding, EMBED_MODEL)
             embed_fn = own_dense.embed
         if sparse_embed_fn is None:
-            own_sparse = SparseTextEmbedding(model_name=SPARSE_MODEL, cache_dir=MODEL_CACHE_DIR,
-                                             providers=ONNX_PROVIDERS)
+            own_sparse = _new_embedder(SparseTextEmbedding, SPARSE_MODEL)
             sparse_embed_fn = own_sparse.embed
 
         texts = [c["text"] for c in chunks]
@@ -661,14 +709,13 @@ def index_folder(folder_path: str, reindex_all: bool = False, drop_collection: b
     
     # 加载模型 + 健康检查（dense e5 + sparse BM42）
     with console.status("[bold green]正在加载 Embedding 模型（dense + sparse）..."):
-        embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR,
-                                 providers=ONNX_PROVIDERS)
-        sparse_embedder = SparseTextEmbedding(model_name=SPARSE_MODEL,
-                                              cache_dir=MODEL_CACHE_DIR,
-                                              providers=ONNX_PROVIDERS)
+        embedder = _new_embedder(TextEmbedding, EMBED_MODEL)
+        sparse_embedder = _new_embedder(SparseTextEmbedding, SPARSE_MODEL)
     _model_health_check(embedder)
     _sparse_health_check(sparse_embedder)
-    logger.info(f"模型加载完成: {EMBED_MODEL} + {SPARSE_MODEL}, providers={ONNX_PROVIDERS}")
+    logger.info(f"模型加载完成: {EMBED_MODEL} + {SPARSE_MODEL}, providers={ONNX_PROVIDERS}"
+                f"（KB_USE_GPU 要求={'CUDA' if os.getenv('KB_USE_GPU', '0') == '1' else 'CPU'}，"
+                f"实际生效={'CUDA' if 'CUDAExecutionProvider' in ONNX_PROVIDERS else 'CPU'}）")
     
     points = []
     embed_buffer = []
@@ -727,9 +774,7 @@ def index_folder(folder_path: str, reindex_all: bool = False, drop_collection: b
             del embedder
             import gc
             gc.collect()
-            embedder = TextEmbedding(
-                model_name=EMBED_MODEL, cache_dir=MODEL_CACHE_DIR, providers=ONNX_PROVIDERS
-            )
+            embedder = _new_embedder(TextEmbedding, EMBED_MODEL)
             _model_health_check(embedder)
             progress.console.print("[green]  ✓ Embedding 模型已重建[/green]")
             logger.info("Embedding 模型已重建")

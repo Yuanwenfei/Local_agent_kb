@@ -50,9 +50,9 @@
 │         ├─► sparse (BM42)             ├─► 加权 RRF 融合    │
 │         ├─► exact  (search_text)      │        │          │
 │         └─► anchor (术语 df 校验)     ┘        ▼          │
-│                                        后处理：目录页降权／ │
-│                                        可信度权重／时效／   │
-│                                        单文档≤2／返图       │
+│                                   后处理：目录页/空壳降权／ │
+│                                   可信度权重／时效／        │
+│                                   单文档≤2／返图            │
 │                                               │           │
 │         ┌─────────────────────┬───────────────┘           │
 │         │  kb_schema.py       │  kb_templates.py          │
@@ -226,12 +226,33 @@ w: dense 0.7 | sparse 0.3 | exact 1.0 | anchor 1.0
 - **exact**：`search_text` 精确串（报错原文、类名、控件语法；归一化去引号/空白）
 - **anchor**：查询含明确标识符（如 `RackConfigurator`）且 df ≤ 60 时，字面命中强力加权
 
+### 中文查询的英文术语转写（仅 sparse 通道）
+
+本库语料为英文，而 BM42 是英文分词、锚点通道的标识符正则只匹配 `[A-Za-z_]`——纯中文提问
+原本只剩 dense 一条腿（融合分上限 0.35、必然触发低置信告警）。`kb_mcp_server.CN_EN_TERMS`
+在服务端把中文概念补成英文术语，**只喂 sparse 通道**：
+
+- dense 继续吃原句（e5-large 多语，跨语言召回有效）
+- exact / anchor 只用用户亲写的原文——转写词是**推测**，而这两条是权重 1.0 的高精度字面
+  通道；实测把 `StraightConveyor` 这类泛类名喂进锚点后，单通道 0.45 会直接压过 dense
+  找对的 0.315，Top1 反而倒退，且会抹掉低置信告警（把推测伪装成字面命中）
+- 转写行为在返回体里可见（`ℹ 中文查询已转写稀疏通道…`），低置信告警会**直接给出该用的英文词**
+
+表值可以是**空格分隔的几个英文词**（同义形态并列或短语），`_keyword_query` 统一拆成词袋。
+典型用法：`"阻塞": "Blocking Blocked"`——裸写 `Blocking` 全库只 8 篇，而语料实际大量用
+`Blocked`(12) / `OnBlocked`(54) / `BlockingLoad`(12)，单形态映射会被 idf 拖成空跑。
+
+术语表由 `tools\mine_cn_terms.py` 维护（不连 Qdrant）：`--check` 查死映射、`--forms` 对形态
+（两者对多词值**逐词**核）、`--grep <词干>` 看语料里的真实写法。曾用的守卫是 `regression\eval_p2.py`
+的 T15（接线不变量 + `group:"cn"` 纯中文用例组），已随回归集一起移出仓库，重建后恢复。
+
 ### 后处理规则
 
 | 规则 | 取值 | 说明 |
 |------|------|------|
 | 候选池 | `top_k × 3` | 后处理前的池子 |
 | 目录页降权 | `×0.6` **且不占 Top3** | 硬约束：目录页保留召回但不占最优位 |
+| 空壳片段降权 | `×0.6` **且不占 Top3** | 剥短代码/HTML 实体/空白后正文 `<20` 字符且无图（官方站点转换的 `{{% children %}}` 目录壳页、代码块尾片等）；入库侧 `finalize_chunks` 已过滤（解析器 `2.3`），此处为检索侧兜底 |
 | 可信度权重 | `measured 1.0` / `tutorial 0.9` / `pending 0.75` | 缺失兜底 `pending` |
 | 时效衰减 | 6 个月线性 → `0.85` 后不再衰减 | **只对「结论类」`kind`**（`note`/`defect_log`/`error_faq`/`model_fact_card`/`version_matrix`）；教程/手册/API 参考恒定 1.0（"教程过时"由版本过滤表达）；`date_inferred` 一律豁免 |
 | 单文档上限 | `≤2` 条 | 避免同一篇霸榜 |
@@ -306,15 +327,10 @@ kind: doc                    # 知识类型，见下
 │   ├── audit_images.py            # 图片审计（不依赖 Qdrant）
 │   ├── ensure_schema.py           # 集合与 payload 索引创建
 │   ├── probe_mcp_stdio.py         # MCP 握手 + tools/list 连通性探针
+│   ├── mine_cn_terms.py           # 中英术语表挖掘/体检（--check 死映射 / --forms 形态 / --grep 词干）
 │   └── smoke_p1..p4.py            # 各阶段冒烟自检
-├── regression/               # 验收回归
-│   ├── queries.jsonl              # 固定查询集（24 条）
-│   ├── eval.py / eval_p2.py       # 度量脚本（dense / 四通道）
-│   ├── summarize.py               # 结果汇总
-│   ├── baseline_20261001.md       # 基线报告
-│   └── results/                   # 每次运行结果（含 baseline.json / latest.json）
 ├── backup/                   # 快照与回滚备份
-└── logs/                     # 索引日志（自动生成）
+└── logs/                     # 索引日志与运行期中间产物（自动生成，已被 .gitignore 排除）
 ```
 
 ---
@@ -330,8 +346,8 @@ kind: doc                    # 知识类型，见下
 | `KB_SITE_BASE` | `https://store.sim3d.com` | 站点相对图片链接补全域名 |
 | `KB_INBOX_DIR` | `<项目>/kb-inbox` | 草稿与待转正产物根 |
 | `KB_CANONICAL_HINT` | `local_agent_kb` | 正本判据（路径含此片段的优先） |
-| `KB_DUPES_EXTRA_DIRS` | `E:\kimi code workbentch` | `kb_dupes` 额外巡检目录（不入库） |
-| `KB_USE_GPU` | `0` | `1` 启用 CUDA（ONNX Runtime） |
+| `KB_DUPES_EXTRA_DIRS` | `<项目同级>\kimi code workbentch` | `kb_dupes` 额外巡检目录（不入库）。按项目位置推导、**不写死盘符**；不存在的目录会显式报「未扫描」，不会再被回显成「扫过了」 |
+| `KB_USE_GPU` | `0` | `1` 启用 CUDA（ONNX Runtime）。CUDA 实际不可用时索引**自动降级 CPU 并告警**（不再硬失败）；`0` 时显锁 CPU |
 | `KB_IDLE_TIMEOUT` | `600` | 模型空闲释放秒数（`0` 不释放） |
 | `KB_CHUNK_MAX_CHARS` | `1200` | 单切片上限字符数 |
 | `KB_DOC_BUDGET` | `3000` | `kb_get_doc` 单次返回字符预算 |
@@ -369,6 +385,7 @@ docker cp "local_kb_qdrant:/qdrant/snapshots/emulate3d_docs/<snapshot-name>" "E:
 | `MCP error -32000: Connection closed` | 多数是 **import 失败**而非协议问题。本仓库跑在**嵌入式 Python**（`python312._pth`），`sys.path` **不含脚本目录**——新增顶层模块必须在入口 `sys.path.insert(0, <脚本目录>)`。用 `tools\probe_mcp_stdio.py` 一眼区分 |
 | 改了 `kb_mcp_server.py` 不生效 | MCP 进程不会热加载，**重启 MCP 服务** |
 | 检索不到新写的元数据 | 先 `tools\backfill_payload.py --all-in-state`（payload 秒级生效）；图片/正文变更才需要重嵌 |
+| 中文检索报低置信 | 优先怀疑**查询语言**而不是「库未覆盖」。本库语料为英文：中文词只能走 dense（+服务端转写后的 sparse）；把概念改成英文标识符重试。转写表缺词跑 `tools\mine_cn_terms.py` 补 |
 | 图看不到 | 确认是本地图（外链图不会返图）；`kb_caption` 看"图注是否已进向量" |
 | 单文件入库状态与全量状态不一致 | `index_docs.py` 用 `index_state.json`；`kb_ingest`/`kb_caption` 用 `kb_ingest_state.json`，属设计如此 |
 
@@ -384,15 +401,23 @@ docker cp "local_kb_qdrant:/qdrant/snapshots/emulate3d_docs/<snapshot-name>" "E:
 
 ### 验收回归
 
+> ⚠️ **当前状态（2026-10-03）**：`regression/` 度量集（35 条固定查询、`eval.py` / `eval_p2.py` /
+> `summarize.py`、`baseline_20261001.md`）已移出仓库，**量化验收（MRR/Recall 基线对比）能力暂缺**。
+> 仓库内现存守卫只有：`tools\smoke_p1..p4.py`（功能冒烟）+ `tools\mine_cn_terms.py`（术语表体检）
+> + 人工抽查。下面的方法论与口径保留，供重建时直接复用。
+
 ```powershell
-python312\python.exe regression\eval_p2.py --compare baseline   # 四通道（权威指标集）
-python312\python.exe regression\eval.py    --compare baseline   # dense 单通道
+python312\python.exe tools\smoke_p3.py                          # 四通道功能冒烟（14 项断言）
 python312\python.exe tools\smoke_p4.py --commit                 # 分阶段冒烟（带自动回滚）
+python312\python.exe tools\mine_cn_terms.py --check             # 术语表死映射体检
+python312\python.exe tools\mine_cn_terms.py --forms             # 术语表形态对齐体检
 ```
 
-- 固定查询集 **24 条**（`regression/queries.jsonl`：API 用法、框架行为、错误串、版本差异、模型事实、缺口探针）；
-- 指标：`MRR@5`、`Recall@5`、分数梯度、目录页 Top1 数、单文档占比、低置信数、延迟，以及 **T1–T14** 断言（版本漂移、图注检索、返图降级、时效口径等）；
-- 达成口径见 `本地知识库开发计划_20261001.md`（含每项实测值与修正记录）。
+历史口径（重建 `regression/` 时应恢复）：
+
+- 固定查询集 **35 条**（core 24 + 纯中文 11；API 用法、框架行为、错误串、版本差异、模型事实、缺口探针）；
+- 指标：`MRR@5`、`Recall@5`、分数梯度、目录页 Top1 数、单文档占比、低置信数、延迟，以及 **T1–T15** 断言（版本漂移、图注检索、返图降级、时效口径、中文转写等）；
+- 达成口径与逐项实测值见 `本地知识库开发计划_20261001.md`（含每项实测值与修正记录）。
 
 ---
 
@@ -402,7 +427,7 @@ python312\python.exe tools\smoke_p4.py --commit                 # 分阶段冒�
 
 - 二期 `kb_caption(mode=summary)`：用 VLM 读图写**真图注**（当前仅规则抽取的"弱图注"）
 - 更强的时间/版本信号：拿到文档真实发布日后启用更细的时效策略
-- 检索评估扩充：把线上失败 query 回流进 `regression/queries.jsonl`
+- 检索评估：**先重建 `regression/` 度量集**（35 条查询 + 四通道指标脚本 + T1–T15 断言），再把线上失败 query 回流进去
 
 ---
 

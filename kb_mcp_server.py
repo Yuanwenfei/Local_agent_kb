@@ -113,8 +113,69 @@ EXACT_WEIGHT = 1.0                   # 精确命中通道权重（"精确命中�
 # 术语锚点通道：查询里的标识符（CamelCase / 带点下划线 / 缩写）且全库稀有 → 高精度强信号
 ANCHOR_WEIGHT = 1.0
 ANCHOR_MAX_DF = 60                   # 锚点词命中片段数上限（更常见就不具备区分度，不做锚点）
+
+# 中文查询 → 英文术语转写表（只喂 sparse 通道，详见 _keyword_query）。
+# 语料为英文：sparse 用 BM42 英文分词、anchor 的标识符正则只匹配 [A-Za-z_]，
+# 所以纯中文提问只剩 dense 一条腿（融合分上限 0.35、必然触发低置信告警）。
+# dense 继续吃原句（e5-large 多语，跨语言召回有效）。
+# 匹配时按长度降序，保证「直线输送机」先于「输送机」命中。
+#
+# 维护约定（2026-10-02 用 tools/mine_cn_terms.py 全表核过）：
+#   1. 等号右边的英文词**必须真实存在于 md-source**——`--check` 查死映射（曾发现
+#      「充电桩→charging station」全库 0 篇，语料实际用 `Charge`）；
+#   2. 单复数/派生形态用 `--forms` 对（BM42 是子词哈希，形态错位会掉 idf 权重）；
+#   3. 新增词先跑 `--grep <词干>` 看真实形态，不凭通用译名猜领域译名；
+#   4. 只收「中文提问里会自然出现」的概念，用户本来就会打英文的（PLC/OPC/AGV）不重复收。
+#   5. 值可以是**空格分隔的多个英文词**（同义形态或短语），会被拆进 sparse 词袋。
+#      用在「一个中文词对应多个英文形态」时：如 `阻塞` 裸写 `Blocking` 全库只 8 篇，
+#      而语料实际大量用 `Blocked`(12) / `OnBlocked`(54) / `BlockingLoad`(12)，
+#      单映射会被 idf 拖成空跑，并列同义形态才接得住（`--check`/`--forms` 逐词核）。
+CN_EN_TERMS = {
+    # -- 输送机与部件 --
+    "直线输送机": "StraightConveyor", "曲线输送机": "CurveConveyor",
+    "积放输送机": "InjectorConveyor", "积放式输送机": "InjectorConveyor",
+    "滚筒输送机": "RollerConveyor", "输送机": "conveyor", "传送带": "belt",
+    "光电传感器": "PhotoEye", "光电": "PhotoEye", "传感器": "sensor",
+    "阻挡器": "StopBlade", "推杆": "Pusher", "升降": "lift", "倾斜": "tilt",
+    "电机": "Motor", "马达": "Motor", "速度": "Speed", "加速度": "Acceleration",
+    "减速度": "Deceleration", "脉冲": "Pulse", "编码器": "Encoder",
+    "滚筒": "roller", "链条": "chain", "转移台": "chain transfer",
+    # -- 物流对象与动作 --
+    "负载": "Load", "货物": "Load", "物料": "Load",
+    "积放": "Accumulation", "阻塞": "Blocking Blocked", "释放": "Release",
+    "阻塞负载": "BlockingLoad", "挡货": "BlockingLoad",
+    "放行": "ReleaseEnabled", "使能": "Enabled",
+    "转移": "Transfer", "移载": "Transfer",
+    "分拣": "Sorting", "码垛": "Palletize",
+    "自动导引车": "AGV", "自主移动机器人": "AMR", "机器人": "vehicle",
+    "机械手": "Robot", "机械臂": "Robot", "夹爪": "Gripper", "关节": "Joint",
+    "充电桩": "Charge", "充电站": "Charge", "充电": "Charge",
+    "货架": "rack", "货位": "slot", "托盘": "pallet", "箱子": "box",
+    "工作站": "workstation", "工位": "Station", "控制器": "controller",
+    "任务": "task", "路径": "Path", "路线": "Route",
+    # -- 空间与物理 --
+    "位置": "Position", "坐标": "Coordinate", "布局": "Layout", "图层": "Layer",
+    "旋转": "Rotation", "移动": "Move", "物理": "Physics", "碰撞": "Collision",
+    "重力": "Gravity", "摩擦": "Friction", "相机": "Camera", "摄像机": "Camera",
+    # -- 逻辑与脚本 --
+    "流程": "Procedure", "主流程": "MainProcedure", "初始化": "OnInitialize",
+    "复位": "Reset", "重置": "Reset", "阻塞事件": "OnBlocked",
+    "逻辑": "Logic", "线程": "Thread", "变量": "Variable", "接口": "Interface",
+    "切面": "Aspect", "流控": "FlowControl", "周期": "Cycle",
+    # -- 数据与治理 --
+    "吞吐量": "Throughput", "吞吐": "Throughput", "报表": "Report", "图表": "Chart",
+    "趋势": "Trend", "信号": "Signal", "统计": "Statistic",
+    "目录": "catalog", "插件": "plugin", "脚本": "script", "属性": "property",
+    "场景": "scene", "仿真": "simulation", "事件": "event", "组件": "component",
+    "报警": "alarm", "日志": "log", "测试": "test", "视觉": "visual",
+    "导入": "Import", "导出": "Export", "许可": "License", "授权": "License",
+    "版本": "Version", "服务器": "Server", "人员": "Person",
+}
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 CANDIDATE_POOL = 3                   # 候选池 = top_k * CANDIDATE_POOL（后处理前的池子）
 TOC_PENALTY = 0.6                    # 目录页降权（设计 §6.3）
+SHELL_PENALTY = 0.6                  # 空壳片段降权（2026-10-03，同目录页策略）
+SHELL_MAX_CHARS = 20                 # 空壳判定：去实体/空白后正文 < 此长度且无图
 MAX_PER_SOURCE = 2                   # 单文档最多命中数
 TRUST_WEIGHT = {"measured": 1.0, "tutorial": 0.9, "pending": 0.75}
 RECENCY_FLOOR = 0.85                 # 6 个月线性衰减到 0.85，之后不再衰减
@@ -128,9 +189,13 @@ LOW_CONF_SEMANTIC = 0.60             # 语义：余弦低于此值视为低置�
 
 # ==================== P3 知识类型与入库通道配置 ====================
 DOCS_ROOT = os.getenv("KB_DOCS_DIR") or os.path.join(PROJECT_ROOT, "md-source")
-# D-6：Kimi 的副本目录纳入 kb_dupes 巡检范围，但**不入库**
+# D-6：助手工作台的副本目录纳入 kb_dupes 巡检范围，但**不入库**。
+# 默认按「与本项目同级」推导，不写死盘符：项目从 E: 迁到 D: 后，写死的路径
+# 会静默变成空巡检，而 kb_dupes 仍会把不存在的路径回显进「扫描范围」，骗过守卫
+# （smoke_p3 就长期假阳性在这里）。可用 KB_DUPES_EXTRA_DIRS 覆盖，多个用 os.pathsep 分隔。
+_DEFAULT_DUPES_EXTRA = os.path.join(os.path.dirname(PROJECT_ROOT), "kimi code workbentch")
 DUPES_EXTRA_DIRS = [d.strip() for d in
-                    (os.getenv("KB_DUPES_EXTRA_DIRS") or r"E:\kimi code workbentch").split(os.pathsep)
+                    (os.getenv("KB_DUPES_EXTRA_DIRS") or _DEFAULT_DUPES_EXTRA).split(os.pathsep)
                     if d.strip()]
 CANONICAL_HINT = os.getenv("KB_CANONICAL_HINT", "local_agent_kb").lower()  # 正本判据：路径含此片段
 DOC_READ_BUDGET = int(os.getenv("KB_DOC_BUDGET", "3000"))   # kb_get_doc 单次返回字符预算
@@ -234,6 +299,10 @@ async def list_tools() -> list[Tool]:
                 "当用户询问API用法、类方法、仿真逻辑、硬件参数、系统对接方案时，必须调用此工具获取权威文档片段，禁止凭记忆回答技术细节。\n"
                 "检索模式 mode：hybrid（默认，dense+sparse+精确三通道 RRF 融合，最稳）／semantic（纯语义，"
                 "适合概念性描述）／exact（精确串，适合报错原文、类名、控件语法）。\n"
+                "⚠ 本库语料为英文：中文关键词进不了 sparse/anchor 通道（BM42 英文分词 + 标识符正则只匹配 [A-Za-z_]），"
+                "纯中文提问只剩 dense 单通道。提问时请带上英文技术标识符（类名/属性名/控件名，如 Motor Speed、"
+                "PulseDistance、StraightConveyor、StopBlade、PhotoEye）；出现低置信告警时优先怀疑查询语言，"
+                "而不是判定「知识库未覆盖」。\n"
                 "分数口径：hybrid 返回 RRF 融合分（单通道命中最高约 0.5，双通道 1.0，**不是余弦相似度**）；"
                 "semantic 返回余弦相似度（0~1）。score_threshold 在 semantic 下作用于最终结果，"
                 "在 hybrid 下只作用于 dense 预筛（sparse 与精确通道不受其限制），因此 hybrid 下不要用 0.65 这类高阈值。\n"
@@ -485,10 +554,10 @@ async def list_tools() -> list[Tool]:
                     "mode": {
                         "type": "string", "default": "hash",
                         "enum": ["hash", "name", "content"],
-                        "description": "hash=磁盘文件内容哈希（含 kimi code workbentch 巡检目录）；name=同名文件；content=库内已入库文本哈希"
+                        "description": "hash=磁盘文件内容哈希（含 KB_DUPES_EXTRA_DIRS 巡检目录）；name=同名文件；content=库内已入库文本哈希"
                     },
                     "limit": {"type": "integer", "default": 30, "description": "最多列出多少组"},
-                    "include_extra_dirs": {"type": "boolean", "default": True, "description": "是否含 KB_DUPES_EXTRA_DIRS（默认 E:\\kimi code workbentch）"}
+                    "include_extra_dirs": {"type": "boolean", "default": True, "description": "是否含 KB_DUPES_EXTRA_DIRS（默认与本项目同级的 kimi code workbentch；不存在的目录会显式报跳过）"}
                 }
             }
         ),
@@ -870,6 +939,39 @@ def _anchor_channel(norm_query: str, vec, flt, limit) -> tuple[list, list[str]]:
     return _anchor_hits(anchors, vec, flt, limit), anchors
 
 
+def _keyword_query(query: str) -> tuple[str, list[tuple[str, str]]]:
+    """为 sparse 通道准备查询串（只对含中文的查询生效）。
+
+    按 CN_EN_TERMS 做最长优先匹配，把中文意图补成英文术语，同时保留查询里原有的
+    英文词。无需转写时原样返回 query，调用方行为与改动前完全一致。
+
+    表值里的空格当词分隔符用（同义形态或短语），所以这里统一拆成词袋：sparse 拿到
+    的本来就是词袋，`chain transfer` 拆成两个词不影响打分，`Blocking Blocked` 这种
+    同义并列才能生效。
+
+    ⚠ 转写词**只喂 sparse，不喂 exact / anchor**。这两条是「高精度字面」通道
+    （权重 1.0），而转写词是推测出来的：实测把 StraightConveyor 这类泛类名喂进
+    anchor 后，单通道锚点分 0.45 直接压过 dense 找对的 0.315，Top1 反而从 rank1
+    退到 rank2。sparse 有 idf 加权，泛词自然低分，才适合吃推测词。
+
+    返回 (供 sparse 使用的串, 命中的中英对照)。
+    """
+    if not _CJK_RE.search(query or ""):
+        return query, []
+    en_tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_.]{1,}", query)
+    rest = query
+    pairs: list[tuple[str, str]] = []
+    for cn in sorted(CN_EN_TERMS, key=len, reverse=True):
+        if cn in rest:
+            rest = rest.replace(cn, " ", 1)
+            pairs.append((cn, CN_EN_TERMS[cn]))
+    if not pairs:
+        return query, []            # 中文但表里没这个概念：不强行丢弃中文，交给 dense
+    terms = list(dict.fromkeys([*en_tokens,
+                                *(w for _, e in pairs for w in e.split())]))
+    return " ".join(terms), pairs
+
+
 # 通道并行池：dense/sparse/精确/锚点四条通道互不依赖，串行发 HTTP 纯属白等。
 # 实测（tools/_probe_latency.py）串行时 hybrid 中位 144ms vs semantic 81ms（+78%），
 # 并行后主要耗时收敛到最慢一条通道。
@@ -941,8 +1043,19 @@ def _recency_factor(p: dict) -> tuple[float, str]:
     return factor, (f"时效×{factor:.2f}" if factor < 0.999 else "")
 
 
+def _is_shell_fragment(p: dict) -> bool:
+    """空壳片段（2026-10-03）：正文去「标题 — 章节」前缀、HTML 实体与空白后
+    < SHELL_MAX_CHARS 字符且无图。这类碎片没内容可答，却可能因语义相近挤进 Top3
+    （实测 `曲线输送机 参数` 的 Top1 就是它）。入库侧已过滤（document_parsers
+    finalize_chunks），这里是检索侧兜底：旧索引未重嵌前、以及未来任何来源的碎片。"""
+    if p.get("image_refs"):
+        return False
+    body = (p.get("text") or "").split("\n", 1)[-1]
+    return len(''.join(re.sub(r'&#?\w+;', '', body).split())) < SHELL_MAX_CHARS
+
+
 def _postprocess(ranked: list, top_k: int) -> list[dict]:
-    """排序后处理（设计 §6.3）：TOC 降权 → trust 权重 → 时效衰减 → 单文档最多 2 条"""
+    """排序后处理（设计 §6.3）：TOC/空壳降权 → trust 权重 → 时效衰减 → 单文档最多 2 条"""
     items = []
     for hit, score, channels, exactness in ranked:
         p = hit.payload or {}
@@ -950,6 +1063,9 @@ def _postprocess(ranked: list, top_k: int) -> list[dict]:
         if p.get("is_toc"):
             score *= TOC_PENALTY
             reasons.append(f"目录页降权×{TOC_PENALTY}（不占 Top3）")
+        if _is_shell_fragment(p):
+            score *= SHELL_PENALTY
+            reasons.append(f"空壳片段降权×{SHELL_PENALTY}（不占 Top3）")
         tw = TRUST_WEIGHT.get(p.get("trust"))
         if tw and tw != 1.0:
             score *= tw
@@ -965,7 +1081,7 @@ def _postprocess(ranked: list, top_k: int) -> list[dict]:
 
     kept: list[dict] = []
     per_source: dict[str, int] = {}
-    deferred_toc: list[dict] = []
+    deferred_low: list[dict] = []
 
     def _try_add(it: dict) -> None:
         if len(kept) >= top_k:
@@ -976,15 +1092,17 @@ def _postprocess(ranked: list, top_k: int) -> list[dict]:
         per_source[src] = per_source.get(src, 0) + 1
         kept.append(it)
 
-    # 目录页（链接列表型的索引页）降权 ×0.6 后仍可能因语义相近挤进 Top3
-    # （实测 q04/q24 仍居首），故再补一条硬约束：目录页不占前 3 位，
-    # 先让非目录页占位，目录页顺延到后面——保留召回，但不占最优位置。
+    # 目录页（链接列表型的索引页）与空壳片段降权 ×0.6 后仍可能因语义相近挤进 Top3
+    # （实测 q04/q24 目录页仍居首；`曲线输送机 参数` 的 Top1 就是壳页），
+    # 故再补一条硬约束：二者不占前 3 位，先让正常片段占位、顺延到后面——
+    # 保留召回，但不占最优位置。
     for it in items:
-        if (it["payload"] or {}).get("is_toc") and len(kept) < 3:
-            deferred_toc.append(it)
+        pl = it["payload"] or {}
+        if (pl.get("is_toc") or _is_shell_fragment(pl)) and len(kept) < 3:
+            deferred_low.append(it)
             continue
         _try_add(it)
-    for it in deferred_toc:
+    for it in deferred_low:
         _try_add(it)
     return kept
 
@@ -1020,6 +1138,8 @@ def _search_structured(args: dict) -> tuple[list[dict], dict]:
     top_k = max(1, min(int(args.get("top_k") or DEFAULT_TOPK), 20))
     pool = max(top_k * CANDIDATE_POOL, 15)
     norm_query = normalize_for_search(query)
+    # 转写词只给 sparse；dense 用原句（多语模型），exact/anchor 只用用户亲写的英文
+    kw_query, cn_pairs = _keyword_query(query)
 
     notes: list[str] = []
     vec = _embed_query(query)
@@ -1029,6 +1149,11 @@ def _search_structured(args: dict) -> tuple[list[dict], dict]:
         """去重追加（drift 场景会重试检索一次，避免同一条提示重复出现）"""
         if msg not in notes:
             notes.append(msg)
+
+    # 转写必须可见：否则 AI 不知道关键词通道被换过词，无法自我纠正下一轮查询
+    if cn_pairs:
+        _add_note("ℹ 中文查询已转写稀疏通道（dense 用原句、精确/锚点不受推测词影响）："
+                  + "、".join(f"{c}→{e}" for c, e in cn_pairs))
 
     def _retrieve(with_version: bool) -> list:
         flt, fnotes = _build_filter(doc_type, section, version if with_version else "",
@@ -1049,7 +1174,7 @@ def _search_structured(args: dict) -> tuple[list[dict], dict]:
         # 四条通道互不依赖 → 并发发出（T11：串行时 hybrid 相对单通道 +78%，超出 <30% 验收线）
         th = args.get("score_threshold")
         th = float(th) if th is not None else HYBRID_DENSE_THRESHOLD
-        sv = _sparse_query_vec(query)          # 纯 token 哈希，0.1ms 级，留在主线程
+        sv = _sparse_query_vec(kw_query)        # 纯 token 哈希，0.1ms 级，留在主线程
         ex_ = _get_channel_pool()
         f_dense = ex_.submit(_dense_hits, vec, flt, pool, th)
         f_sparse = ex_.submit(_sparse_hits, sv, flt, pool) if sv is not None else None
@@ -1100,6 +1225,12 @@ def _search_structured(args: dict) -> tuple[list[dict], dict]:
         low_conf = (f"⚠ 低置信：Top1 仅由 {top_channels[0]} 单通道支持（无第二通道印证）。"
                     f"建议：改用 mode=exact 搜报错原文/类名，或补充更精确的关键词；"
                     f"若仍无可靠结果，应明确告知用户「知识库未覆盖」，不要硬答。")
+        # 本库语料为英文：单通道很可能是「查询语言」问题而不是「库未覆盖」，
+        # 把该用的英文词直接给出去，客户端下一轮能自己纠偏。
+        if _CJK_RE.search(query):
+            low_conf += ("\n　↳ 本库语料为英文，中文词无法进入 sparse/anchor 通道。"
+                         + (f"请用英文术语重试：{kw_query}" if cn_pairs
+                            else "请把提问里的概念改成英文技术标识符（类名/属性名/控件名）后重试。"))
     elif mode == "semantic" and raw_top < LOW_CONF_SEMANTIC:
         low_conf = (f"⚠ 低置信：最高余弦相似度 {raw_top:.3f} < {LOW_CONF_SEMANTIC}。"
                     f"建议改 mode=hybrid（三通道融合）或补充关键词。")
@@ -2152,6 +2283,13 @@ async def _handle_kb_dupes(args: dict) -> Sequence[TextContent]:
     with_extra = bool(args.get("include_extra_dirs", True))
 
     roots = [DOCS_ROOT] + (DUPES_EXTRA_DIRS if with_extra else [])
+    # 不存在的目录从扫描范围里拿掉并**显式告知**：以前是把死路径直接回显进
+    # 「扫描范围」，看起来扫了、其实什么都没扫。
+    missing = [r for r in roots if not os.path.isdir(r)]
+    if missing:
+        roots = [r for r in roots if os.path.isdir(r)]
+    missing_note = ("\n\n⚠ 以下巡检目录不存在，本次**未扫描**（配置项 KB_DUPES_EXTRA_DIRS）：\n  "
+                    + "\n  ".join(f"`{m}`" for m in missing)) if missing else ""
     groups: dict[str, list[str]] = {}
 
     if mode in ("hash", "name"):
@@ -2173,10 +2311,11 @@ async def _handle_kb_dupes(args: dict) -> Sequence[TextContent]:
     dupes = {k: v for k, v in groups.items() if len(v) > 1}
     scope = "库内已入库文本" if mode == "content" else "；".join(roots)
     if not dupes:
-        return [TextContent(type="text", text=f"✅ 未发现副本（模式:{mode}；扫描范围：{scope}）")]
+        return [TextContent(type="text",
+                            text=f"✅ 未发现副本（模式:{mode}；扫描范围：{scope}）{missing_note}")]
 
     rows = sorted(dupes.items(), key=lambda kv: -len(kv[1]))[:limit]
-    lines = [f"## 副本巡检（模式:{mode}）", f"扫描范围：{scope}",
+    lines = [f"## 副本巡检（模式:{mode}）", f"扫描范围：{scope}{missing_note}",
              f"发现 {len(dupes)} 组副本，显示 {len(rows)} 组。"
              f"**按 D-5 只标记不删**——请人工确认后清理。", ""]
     for key, paths in rows:

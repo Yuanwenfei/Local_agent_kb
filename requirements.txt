@@ -1,6 +1,11 @@
 mcp==1.6.0
 qdrant-client==1.13.0
 fastembed==0.8.0
+# 部署坑：fastembed 默认拉 CPU-only onnxruntime，会顶掉已装的
+# onnxruntime-gpu，导致 index_docs.bat（KB_USE_GPU=1）报
+# "Provider CUDAExecutionProvider is not available"。必须显式装 GPU 版；
+# 二者不能共存，若已装 CPU 版需先 pip uninstall onnxruntime。
+onnxruntime-gpu==1.26.0
 pymupdf==1.25.0
 python-docx==1.1.0
 PyYAML==6.0.3

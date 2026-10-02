@@ -488,6 +488,11 @@ def _weak_image_caption(heading: str, raw_lines: list[str]) -> str:
     return _image_caption(heading, raw_lines)[0]
 
 
+# HTML 实体（&nbsp;/&#160;/&amp; 等）：官方站点转换来的「目录壳页」剥完短代码后
+# 往往只剩实体与空白，finalize_chunks 的壳页判定按「去实体与空白后的正文长度」计
+_ENTITY_RE = re.compile(r'&#?\w+;')
+
+
 def strip_shortcodes(text: str) -> str:
     """去掉 Hugo 短代码标记（保留其中的正文）。"""
     return _SHORTCODE_RE.sub('', text)
@@ -555,9 +560,24 @@ def finalize_chunks(text: str, *, heading: str, source: str, title: str,
     if not text:
         return []
 
+    # 空壳片段过滤（2026-10-03）：官方站点转换的 `{{% children %}}&nbsp;` 目录壳页，
+    # 剥短代码后仅剩实体/空白——但 parse_md 的 <20 长度闸跑在剥短代码**之前**，
+    # 22 字符的原文能过关，剥完剩 6 字符照样入库（实测 17 条，含 15 条纯空壳，
+    # 会被 dense 顶到 Top1 却无内容可答）。这里补在剥短代码**之后**，与 PDF/DOCX
+    # 路径的 <20 丢弃对齐；带图片段豁免（图注已并入正文，另走图片逻辑）。
+    if not has_image:
+        meaningful = ''.join(_ENTITY_RE.sub('', text).split())
+        if len(meaningful) < 20:
+            return []
+
     prefix = f"{title} — {heading}" if (title and heading) else (title or '')
     chunks = []
     for part, piece in enumerate(split_long_text(text)):
+        # 分片后再判一次（2026-10-03）：整篇过了长度闸，split_long_text 仍可能切出
+        # 迷你尾片——实测有 "}}```---"(9 字符)、"---"(3 字符) 这类代码块收尾/分隔线
+        # 片段入库并占据检索位；无内容分片一律不入库（带图豁免同上）。
+        if not has_image and len(''.join(_ENTITY_RE.sub('', piece).split())) < 20:
+            continue
         class_name, method_name = _detect_class_method(piece)
         chunk = {
             "text": f"{prefix}\n{piece}" if prefix else piece,
